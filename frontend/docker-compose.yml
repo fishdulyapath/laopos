@@ -1,0 +1,16 @@
+services:
+  bizsuit-web:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: ${BIZSUIT_VITE_API_BASE_URL:-/service/v1}
+        VITE_BASE_PATH: ${BIZSUIT_VITE_BASE_PATH:-/bizsuit/}
+        VITE_TIGER_MOCK: ${BIZSUIT_VITE_TIGER_MOCK:-false}
+        VITE_CHANGE_CURRENCY_CODE: ${BIZSUIT_VITE_CHANGE_CURRENCY_CODE:-KIP}
+        VITE_CHANGE_ROUNDING_STEP: ${BIZSUIT_VITE_CHANGE_ROUNDING_STEP:-500}
+        VITE_CHANGE_ROUNDING_MODE: ${BIZSUIT_VITE_CHANGE_ROUNDING_MODE:-down}
+        VITE_CHANGE_ROUNDING_INCOME_CODE: ${BIZSUIT_VITE_CHANGE_ROUNDING_INCOME_CODE:-RD-002}
+    image: bizsuit-web:local
+    ports:
+      - "${BIZSUIT_WEB_PORT:-8090}:80"
+    restart: unless-stopped

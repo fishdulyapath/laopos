@@ -1,0 +1,103 @@
+services:
+  bizsuit-api:
+    image: ${BIZSUIT_API_IMAGE:-minorsoft/bizsuit-api:latest}
+    container_name: bizsuit-api
+    restart: always
+    expose:
+      - "47300"
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_IMAGES_NAME: ${DB_IMAGES_NAME}
+      ONEPAY_BASE_URL: ${ONEPAY_BASE_URL}
+      ONEPAY_USERNAME: ${ONEPAY_USERNAME}
+      ONEPAY_PASSWORD: ${ONEPAY_PASSWORD}
+      ONEPAY_MCID: ${ONEPAY_MCID}
+      ONEPAY_MERCHANT_NAME: ${ONEPAY_MERCHANT_NAME}
+      ONEPAY_MCC: ${ONEPAY_MCC}
+      ONEPAY_SHOPCODE: ${ONEPAY_SHOPCODE}
+      ONEPAY_ACCOUNTNO: ${ONEPAY_ACCOUNTNO}
+      ONEPAY_QR_TRANSFER_PASS_BOOK_CODE: ${ONEPAY_QR_TRANSFER_PASS_BOOK_CODE}
+      SELL_SUMMARY_CURRENCY_CODES: ${SELL_SUMMARY_CURRENCY_CODES}
+      CUSTOMER_DISPLAY_UPLOAD_DIR: /app/uploads/customer-display
+      PORT: 47300
+    volumes:
+      - customer_display_uploads:/app/uploads/customer-display
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - bizsuit_net
+      - sml_service_network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:47300/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bizsuit-app:
+    image: ${BIZSUIT_APP_IMAGE:-minorsoft/bizsuit-app:latest}
+    container_name: bizsuit-app
+    restart: always
+    depends_on:
+      bizsuit-api:
+        condition: service_healthy
+    expose:
+      - "80"
+    networks:
+      - bizsuit_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: bizsuit-nginx
+    restart: always
+    ports:
+      - "${BIZSUIT_STACK_PORT:-8081}:80"
+    volumes:
+      - ./nginx-bizsuit.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      bizsuit-app:
+        condition: service_healthy
+      bizsuit-api:
+        condition: service_healthy
+    networks:
+      - bizsuit_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  customer_display_uploads:
+
+networks:
+  bizsuit_net:
+    driver: bridge
+  sml_service_network:
+    external: true

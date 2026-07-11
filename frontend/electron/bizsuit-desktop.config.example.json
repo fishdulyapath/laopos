@@ -1,0 +1,14 @@
+{
+  "apiBaseUrl": "http://45.122.49.250:8092/service/v1",
+  "devices": {
+    "printerName": "EPSON LQ-310 ESC/P2",
+    "rawPrinterName": "EPSON LQ-310 ESC/P2",
+    "printSilently": true,
+    "dllDir": "C:\\\\smlsoft",
+    "cashDrawer": {
+      "mode": "usbcr",
+      "dllDir": "C:\\\\smlsoft",
+      "drawerId": 1
+    }
+  }
+}

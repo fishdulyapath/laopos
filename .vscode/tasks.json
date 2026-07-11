@@ -1,0 +1,77 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Santiparb POS: Build Windows Installer",
+      "type": "shell",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "dist:win"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Santiparb POS: Release via GitHub Actions",
+      "type": "shell",
+      "command": "gh",
+      "args": [
+        "workflow",
+        "run",
+        "release-windows.yml",
+        "--repo",
+        "Santiparb-Repo/Santiparb_POS",
+        "--ref",
+        "main",
+        "-f",
+        "version=${input:releaseVersion}",
+        "-f",
+        "prerelease=${input:releasePrerelease}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Santiparb POS: Watch Latest GitHub Actions Run",
+      "type": "shell",
+      "command": "gh",
+      "args": [
+        "run",
+        "watch",
+        "--repo",
+        "Santiparb-Repo/Santiparb_POS",
+        "--exit-status"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "releaseVersion",
+      "type": "promptString",
+      "description": "Version to release, for example 1.1.10"
+    },
+    {
+      "id": "releasePrerelease",
+      "type": "pickString",
+      "description": "Mark the GitHub release as prerelease?",
+      "options": [
+        "false",
+        "true"
+      ],
+      "default": "false"
+    }
+  ]
+}

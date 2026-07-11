@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" role="img" aria-label="LAO QR">
+  <rect x="2" y="2" width="92" height="60" rx="12" fill="#ffffff"/>
+  <path d="M18 18h12v5h-7v7h-5V18Zm48 0h12v12h-5v-7h-7v-5ZM18 34h5v7h7v5H18V34Zm55 0h5v12H66v-5h7v-7Z" fill="#0f8aa4"/>
+  <text x="48" y="33" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" letter-spacing="1.5" fill="#0f8aa4">LAO</text>
+  <text x="48" y="49" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" letter-spacing="1.5" fill="#0f8aa4">QR</text>
+</svg>

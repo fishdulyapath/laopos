@@ -1,0 +1,118 @@
+name: Release Windows Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "App version to publish, for example 1.1.10"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark GitHub release as prerelease"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Build and publish Windows installer
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        run: |
+          $version = "${{ inputs.version }}"
+          if (-not $version) {
+            $version = "${{ github.ref_name }}" -replace '^v', ''
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            throw "Invalid version '$version'. Use a version like 1.1.10."
+          }
+
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "TAG_NAME=v$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set app version and release type
+        working-directory: frontend
+        env:
+          APP_VERSION: ${{ env.APP_VERSION }}
+          RELEASE_TYPE: ${{ inputs.prerelease == true && 'prerelease' || 'release' }}
+        run: node scripts/set-build-config.mjs
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Ensure release tag and release exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          $remoteTag = git ls-remote --tags origin "refs/tags/$env:TAG_NAME"
+          if (-not $remoteTag) {
+            git tag $env:TAG_NAME
+            git push origin "refs/tags/$env:TAG_NAME"
+          } else {
+            Write-Host "Tag $env:TAG_NAME already exists, skipping tag creation."
+          }
+
+          gh release view $env:TAG_NAME *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $env:TAG_NAME already exists, skipping release creation."
+          } else {
+            $releaseArgs = @(
+              "release", "create", $env:TAG_NAME,
+              "--repo", "${{ github.repository }}",
+              "--target", "${{ github.sha }}",
+              "--title", $env:APP_VERSION,
+              "--notes", "v$env:APP_VERSION"
+            )
+            if ("${{ inputs.prerelease }}" -eq "true") {
+              $releaseArgs += "--prerelease"
+            } else {
+              $releaseArgs += "--latest"
+            }
+            gh @releaseArgs
+          }
+      - name: Build and publish release
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BIZSUIT_UPDATE_GITHUB_TOKEN: ${{ secrets.BIZSUIT_UPDATE_GITHUB_TOKEN || vars.BIZSUIT_UPDATE_GITHUB_TOKEN }}
+          BIZSUIT_UPDATE_TOKEN_REQUIRED: '1'
+        run: npm run dist:win:publish
+
+      - name: Ensure updater metadata is uploaded
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if (-not (Test-Path "release/latest.yml")) {
+            throw "release/latest.yml was not generated. Auto update will not work without this file."
+          }
+          gh release upload $env:TAG_NAME "release/latest.yml" --repo "${{ github.repository }}" --clobber

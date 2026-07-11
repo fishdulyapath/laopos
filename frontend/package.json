@@ -1,0 +1,117 @@
+{
+  "name": "bizsuit-web",
+  "private": true,
+  "version": "1.2.28",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "node scripts/electron-dev.mjs",
+    "electron:build": "node scripts/electron-build.mjs",
+    "electron:preview": "node scripts/electron-preview.mjs",
+    "dist:win": "node scripts/electron-build.mjs && node scripts/generate-win-icon.mjs && node scripts/generate-update-config.mjs && electron-builder --win nsis --x64",
+    "dist:win:publish": "node scripts/electron-build.mjs && node scripts/generate-win-icon.mjs && node scripts/generate-update-config.mjs && electron-builder --win nsis --x64 --publish always",
+    "dist:win:portable": "node scripts/electron-build.mjs && node scripts/generate-win-icon.mjs && node scripts/generate-update-config.mjs && electron-builder --win portable --x64",
+    "dist:mac": "node scripts/electron-build.mjs && electron-builder --mac dmg --universal",
+    "test:demo-sale": "node scripts/demo-sale-regression.mjs",
+    "test:set-product": "node scripts/set-product-regression.mjs",
+    "test:phase1-payment": "node scripts/phase1-payment-regression.mjs",
+    "test:sale-credit": "node scripts/sale-credit-regression.mjs",
+    "test:sell-detail": "node scripts/sell-detail-regression.mjs",
+    "test:sale-total-mismatch": "node scripts/sale-total-mismatch-regression.mjs",
+    "test:sale-all": "node scripts/run-all-sale-tests.mjs",
+    "smoke:docker": "node scripts/docker-smoke.mjs",
+    "smoke:fullstack": "node scripts/fullstack-smoke.mjs",
+    "stack:up": "docker compose -f docker-compose.fullstack.yml up --build -d",
+    "stack:down": "docker compose -f docker-compose.fullstack.yml down --remove-orphans"
+  },
+  "dependencies": {
+    "@primeuix/themes": "^2.0.3",
+    "@zxing/browser": "^0.2.0",
+    "@zxing/library": "^0.22.0",
+    "axios": "^1.15.2",
+    "electron-updater": "^6.8.9",
+    "pinia": "^2.3.1",
+    "primeflex": "^4.0.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.5",
+    "vue": "^3.5.32",
+    "vue-i18n": "^11.4.4",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.6",
+    "electron": "^39.8.10",
+    "electron-builder": "^26.8.1",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.34.2",
+    "vite": "^8.0.9"
+  },
+  "build": {
+    "appId": "com.fishsoft.bizsuit",
+    "productName": "santiparbpos",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Santiparb-Repo",
+        "repo": "Santiparb_POS",
+        "releaseType": "release",
+        "private": true
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/santipab.ico",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "artifactName": "santiparbpos-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "santiparbpos",
+      "installerIcon": "build/santipab.ico",
+      "uninstallerIcon": "build/santipab.ico",
+      "installerHeaderIcon": "build/santipab.ico"
+    },
+    "portable": {
+      "artifactName": "santiparbpos-${version}-portable-x64.exe"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "public/santipab.png",
+      "category": "public.app-category.business",
+      "identity": null
+    },
+    "dmg": {
+      "artifactName": "santiparbpos-${version}-universal.dmg"
+    }
+  }
+}

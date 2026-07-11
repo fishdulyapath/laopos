@@ -1,0 +1,4532 @@
+<script setup>
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import Accordion from 'primevue/accordion'
+import AccordionContent from 'primevue/accordioncontent'
+import AccordionHeader from 'primevue/accordionheader'
+import AccordionPanel from 'primevue/accordionpanel'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import InputNumber from 'primevue/inputnumber'
+import InputText from 'primevue/inputtext'
+import Message from 'primevue/message'
+import Select from 'primevue/select'
+import Textarea from 'primevue/textarea'
+import { useToast } from 'primevue/usetoast'
+import SalesProductBasketDialog from '@/components/sell/SalesProductBasketDialog.vue'
+import api from '@/services/api'
+import { getSaleDocFormatList } from '@/services/basketService'
+import { getSalePrintForms, getSalePrintUrl } from '@/services/salesService'
+import {
+  getCreditTypeList,
+  getCustomerCredit,
+  getCustomerTotalBalance,
+  getCouponList,
+  getCustomerList,
+  getPassBookList,
+  getPaymentMasterLists,
+  getProductByBarcodeDetail,
+  getProductBarcodeSearch,
+  getProductDetail,
+  getProductPrice,
+  getProductSetDetail,
+  getProductSetItem,
+  getPromotionItemHints,
+  getSaleDepositBalanceList,
+  processPromotion,
+  saveTransAndPro,
+} from '@/services/sellService'
+import { useAuthStore } from '@/stores/auth'
+import { usePosStore } from '@/stores/pos'
+import { getInventoryBalance, getShelfList, getWarehouseList } from '@/services/inventoryService'
+import { calcAfterDiscount, calcDiscountAmount } from '@/utils/discount'
+import { formatCurrency, todayISO } from '@/utils/formatters'
+
+const toast = useToast()
+const authStore = useAuthStore()
+const posStore = usePosStore()
+
+const loading = ref(false)
+const saving = ref(false)
+const errorMsg = ref('')
+const successDocNo = ref('')
+const saveDialogVisible = ref(false)
+const saveDialogType = ref('info')
+const saveDialogTitle = ref('')
+const saveDialogMessage = ref('')
+const saveDialogDetails = ref([])
+const saveDialogPrimaryLabel = ref('')
+const saveDialogPrimarySeverity = ref('warning')
+const saveDialogPrimaryAction = ref(null)
+const creditApproveDialogVisible = ref(false)
+const creditApproveUser = ref('')
+const creditApprovePassword = ref('')
+const creditApproveMessage = ref('')
+const creditApproveDetails = ref([])
+const creditApproveSnapshot = ref(null)
+const creditApproveConfirmations = ref([])
+
+const docFormats = ref([])
+const docFormatCode = ref('')
+const defaultCustomerCode = 'AR00001'
+const defaultCustomerName = 'เงินสดปลีก'
+const custCode = ref(defaultCustomerCode)
+const custName = ref(defaultCustomerName)
+const custSearch = ref('')
+const custResults = ref([])
+const custLoading = ref(false)
+const customerDialogVisible = ref(false)
+let custTimer = null
+
+const saleCode = ref('')
+const saleName = ref('')
+const saleSearch = ref('')
+const saleResults = ref([])
+const saleLoading = ref(false)
+const employeeDialogVisible = ref(false)
+let saleTimer = null
+
+const inquiryType = ref(1)
+const docDate = ref(todayISO())
+const vatType = ref(1)
+const vatRate = ref(7)
+const remark = ref('')
+const remark2 = ref('')
+const remark3 = ref('')
+const remark4 = ref('')
+const remark5 = ref('')
+const discountWord = ref('')
+const creditDay = ref(0)
+const dueDate = ref(todayISO())
+const sendDate = ref(todayISO())
+const deliveryDate = ref(todayISO())
+const sendType = ref(0)
+const transportType = ref(null)
+const documentCurrency = ref(null)
+const documentExchangeRate = ref(1)
+const customerCredit = ref(null)
+const customerCreditLoading = ref(false)
+const customerCreditError = ref('')
+
+const productSearch = ref('')
+const productResults = ref([])
+const productLoading = ref(false)
+const productDialogVisible = ref(false)
+const productBasketVisible = ref(false)
+const warehouseOptions = ref([])
+const shelfOptionsByWh = ref({})
+const barcodeInput = ref('')
+const barcodeRef = ref(null)
+const barcodeAdding = ref(false)
+const priceRefreshing = ref(false)
+const rows = ref([])
+let priceRefreshTimer = null
+let priceRefreshRunId = 0
+const priceEditorVisible = ref(false)
+const priceEditLine = ref(null)
+const priceEditValue = ref(0)
+const remarkEditorVisible = ref(false)
+const remarkEditLine = ref(null)
+const remarkEditText = ref('')
+const promotionLoading = ref(false)
+const promotionDirty = ref(false)
+const promotionError = ref('')
+const promotionResults = ref([])
+const promotionProductRows = ref([])
+const promotionDiscountRaw = ref(0)
+const promotionLastCalculatedAt = ref('')
+const promotionGuideLoading = ref(false)
+const promotionGuideError = ref('')
+const promotionGuideMap = ref({})
+const promotionGuideDialogVisible = ref(false)
+const promotionGuideDialogLine = ref(null)
+let promotionTimer = null
+let promotionRunId = 0
+let promotionGuideTimer = null
+let promotionGuideRunId = 0
+
+const activePayType = ref('cash')
+const paymentEntries = ref([])
+const paymentReviewNeeded = ref(false)
+const paymentReviewTotal = ref(null)
+const cashInputAmount = ref(0)
+const cashCurrencyCode = ref('THB')
+const cashCurrencyAmount = ref(0)
+const cashExchangeRate = ref(1)
+const transferInputAmount = ref(0)
+const transferDate = ref(todayISO())
+const transferPassBook = ref(null)
+const creditInputAmount = ref(0)
+const creditType = ref(null)
+const creditCardNumber = ref('')
+const creditApprovalNo = ref('')
+const chequePassBook = ref(null)
+const chequeNumber = ref('')
+const chequeDueDate = ref(todayISO())
+const chequeAmount = ref(0)
+const pettyCashAccount = ref(null)
+const pettyCashAmount = ref(0)
+const depositDoc = ref(null)
+const depositAmount = ref(0)
+const depositOptions = ref([])
+const depositSearch = ref('')
+const couponSearch = ref('')
+const couponOptions = ref([])
+const couponSelected = ref(null)
+const couponAmount = ref(0)
+const incomeType = ref(null)
+const incomeAmount = ref(0)
+const expenseType = ref(null)
+const expenseAmount = ref(0)
+const otherCurrency = ref(null)
+const otherCurrencyAmount = ref(0)
+const otherCurrencyCharge = ref(0)
+const walletType = ref(null)
+const walletAmount = ref(0)
+const walletNumber = ref('')
+const walletApprovedNo = ref('')
+const walletRef1 = ref('')
+const walletRef2 = ref('')
+const roundedAmount = ref(0)
+const passBooks = ref([])
+const creditTypes = ref([])
+const pettyCashList = ref([])
+const incomeTypes = ref([])
+const expenseTypes = ref([])
+const currencyTypes = ref([])
+const walletTypes = ref([])
+const transportTypes = ref([])
+const shippingLabels = ref([])
+const glAccounts = ref([])
+const paymentMasterOptions = ref({
+  multi_currency: 0,
+  input_credit_card_charge: 0,
+  coupon_full_amount: 0,
+  home_currency: '',
+  currency_exchange_decimal: 2,
+})
+
+const taxDocNo = ref('')
+const taxDocDate = ref(todayISO())
+const vatSaleDescription = ref('')
+const vatSaleTaxNo = ref('')
+const vatSaleBranchCode = ref('')
+const selectedShippingLabel = ref(null)
+const shipment = ref({
+  transport_name: '',
+  transport_address: '',
+  transport_telephone: '',
+  transport_fax: '',
+  transport_tambon: '',
+  transport_amper: '',
+  transport_province: '',
+  transport_country: '',
+  zipcode: '',
+  transport_code: '',
+  destination: '',
+  remark: '',
+  remark_2: '',
+  ship_code: '',
+  logistic_area: '',
+  latitude: 0,
+  longitude: 0,
+})
+const whtRows = ref([])
+const whtIncomeType = ref('')
+const whtAmount = ref(0)
+const whtRate = ref(0)
+const manualGlRows = ref([])
+const manualGlAccount = ref(null)
+const manualGlDebit = ref(0)
+const manualGlCredit = ref(0)
+
+const printDialogVisible = ref(false)
+const printLoading = ref(false)
+const printError = ref('')
+const printForms = ref([])
+const selectedPrintForms = ref([])
+
+const inquiryTypeOptions = [
+  { label: 'ขายเชื่อ', value: 0 },
+  { label: 'ขายสด', value: 1 },
+  { label: 'เชื่อ(บริการ)', value: 2 },
+  { label: 'สด(บริการ)', value: 3 },
+]
+
+const vatTypeOptions = [
+  { label: 'ภาษีแยกนอก', value: 0 },
+  { label: 'ภาษีรวมใน', value: 1 },
+  { label: 'ไม่กระทบภาษี', value: 2 },
+  { label: 'ภาษีศูนย์', value: 3 },
+]
+
+const sendTypeOptions = [
+  { label: 'รับเอง', value: 0 },
+  { label: 'จัดส่ง', value: 1 },
+  { label: 'ขนส่ง', value: 2 },
+]
+
+const basePaymentTypeOptions = [
+  { label: 'เงินสด', value: 'cash', icon: 'pi pi-money-bill' },
+  { label: 'โอน', value: 'transfer', icon: 'pi pi-building-columns' },
+  { label: 'บัตร', value: 'credit', icon: 'pi pi-credit-card' },
+  { label: 'เช็ค', value: 'cheque', icon: 'pi pi-file' },
+  { label: 'เงินสดย่อย', value: 'petty', icon: 'pi pi-briefcase' },
+  { label: 'เงินล่วงหน้า', value: 'deposit', icon: 'pi pi-receipt' },
+  { label: 'คูปอง', value: 'coupon', icon: 'pi pi-ticket' },
+  { label: 'รายได้อื่น', value: 'income', icon: 'pi pi-plus-circle' },
+  { label: 'ค่าใช้จ่ายอื่น', value: 'expense', icon: 'pi pi-minus-circle' },
+  { label: 'สกุลเงินอื่นๆ', value: 'currency', icon: 'pi pi-globe' },
+  { label: 'Wallet', value: 'wallet', icon: 'pi pi-wallet' },
+]
+
+const visiblePaymentTypeOptions = computed(() =>
+  basePaymentTypeOptions.filter((tab) =>
+    tab.value !== 'currency' || toNumber(paymentMasterOptions.value.multi_currency) === 1,
+  ),
+)
+
+const cashCurrencyOptions = [
+  { label: 'บาท', value: 'THB', name: 'บาท', rate: 1 },
+  { label: 'กีบ', value: 'LAK', name: 'กีบ', rate: 0 },
+  { label: 'หยวน', value: 'CNY', name: 'หยวน', rate: 0 },
+]
+
+const docFormatOptions = computed(() =>
+  docFormats.value.map((format) => ({
+    ...format,
+    label: `${format.code} - ${format.name_1 || ''}`,
+  })),
+)
+
+const selectedDocFormat = computed(() =>
+  docFormats.value.find((format) => format.code === docFormatCode.value) || null,
+)
+
+function optionLabel(row) {
+  return `${row?.code || ''} ${row?.name_1 || row?.name || ''}`.trim()
+}
+
+const warehouseSelectOptions = computed(() =>
+  warehouseOptions.value.map((row) => ({
+    ...row,
+    label: optionLabel(row),
+  })),
+)
+
+function shelfSelectOptions(whCode) {
+  return (shelfOptionsByWh.value[whCode || ''] || []).map((row) => ({
+    ...row,
+    label: optionLabel(row),
+  }))
+}
+
+async function ensureShelfOptions(whCode) {
+  const code = String(whCode || '').trim()
+  if (!code || Object.prototype.hasOwnProperty.call(shelfOptionsByWh.value, code)) return
+  shelfOptionsByWh.value = { ...shelfOptionsByWh.value, [code]: [] }
+  try {
+    const shelves = await getShelfList(code)
+    shelfOptionsByWh.value = { ...shelfOptionsByWh.value, [code]: shelves }
+  } catch {
+    shelfOptionsByWh.value = { ...shelfOptionsByWh.value, [code]: [] }
+  }
+}
+
+function setLineWarehouse(line, whCode) {
+  if (documentLocked.value) return
+  line.wh_code = whCode || ''
+  line.shelf_code = ''
+  line.balance_base = null
+  if (line.wh_code) void ensureShelfOptions(line.wh_code)
+}
+
+function setLineShelf(line, shelfCode) {
+  if (documentLocked.value) return
+  line.shelf_code = shelfCode || ''
+  line.balance_base = null
+}
+
+const customerDisplay = computed(() =>
+  `${custCode.value || defaultCustomerCode} ${custName.value || defaultCustomerName}`.trim(),
+)
+
+const employeeDisplay = computed(() =>
+  `${saleCode.value || ''} ${saleName.value || ''}`.trim(),
+)
+
+const isCreditSale = computed(() => [0, 2].includes(Number(inquiryType.value)))
+const isCashSale = computed(() => !isCreditSale.value)
+
+const validRows = computed(() =>
+  rows.value.filter((row) => String(row.item_code || '').trim() && Number(row.qty) > 0),
+)
+
+function rnd(value, point = 2) {
+  const factor = 10 ** point
+  return Math.round((Number(value) || 0) * factor) / factor
+}
+
+function toNumber(value, fallback = 0) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : fallback
+}
+
+function calcPaymentCharge(amount, chargeRateValue) {
+  const word = String(chargeRateValue ?? '').trim()
+  if (!word) return 0
+  const number = toNumber(word.replace('%', ''))
+  if (number === 0) return 0
+  return word.includes('%') ? rnd(amount * (number / 100)) : rnd(number)
+}
+
+function formatQty(value) {
+  return new Intl.NumberFormat('th-TH', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(toNumber(value))
+}
+
+function setCashAmountFromBaht(amount) {
+  const rate = toNumber(cashExchangeRate.value)
+  cashInputAmount.value = rnd(amount)
+  cashCurrencyAmount.value = rate > 0 ? rnd(toNumber(amount) / rate) : 0
+}
+
+function changeCashCurrency(code) {
+  const currency = cashCurrencyOptions.find((item) => item.value === code) || cashCurrencyOptions[0]
+  cashCurrencyCode.value = currency.value
+  cashExchangeRate.value = currency.rate
+  setCashAmountFromBaht(remainingPayment.value || totalDue.value)
+}
+
+function paymentEntryDescription(entry) {
+  if (entry.type === 'cash' && entry.details?.currency_code) {
+    const details = entry.details
+    if (details.currency_code === 'THB') return 'เงินสด'
+    return `${formatQty(details.currency_amount)} ${details.currency_name || details.currency_code} x ${formatQty(details.exchange_rate)}`
+  }
+  if (entry.details?.trans_number) return entry.details.trans_number
+  const labels = {
+    transfer: 'โอน',
+    credit: 'บัตร',
+    cheque: 'เช็ค',
+    petty: 'เงินสดย่อย',
+    deposit: 'เงินล่วงหน้า',
+    coupon: 'คูปอง',
+    income: 'รายได้อื่น',
+    expense: 'ค่าใช้จ่ายอื่น',
+    currency: 'สกุลเงินอื่นๆ',
+    wallet: 'Wallet',
+  }
+  return labels[entry.type] || entry.type
+}
+
+function paymentEntryAmount(entry) {
+  return toNumber(entry.amount) + toNumber(entry.details?.charge)
+}
+
+function productResultKey(product) {
+  return [
+    product.item_code || '',
+    product.unit_code || '',
+    product.barcode || '',
+  ].join('|')
+}
+
+function localTimeHHMM() {
+  return new Date().toTimeString().slice(0, 5)
+}
+
+function addDaysISO(value, days = 0) {
+  const date = value ? new Date(`${value}T00:00:00`) : new Date()
+  if (Number.isNaN(date.getTime())) return todayISO()
+  date.setDate(date.getDate() + toNumber(days))
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function makeLineId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `line-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function priceOpts() {
+  return {
+    sale_type: inquiryType.value,
+    vat_type: vatType.value,
+    vat_rate: vatRate.value,
+    doc_date: docDate.value,
+  }
+}
+
+function lineDiscountAmount(line) {
+  const discount = String(line.discount || '').trim() || String(line.discount_amount || '').trim()
+  return calcDiscountAmount(toNumber(line.price), toNumber(line.qty), discount).discount_amount
+}
+
+function lineSumAmount(line) {
+  const discount = String(line.discount || '').trim() || String(line.discount_amount || '').trim()
+  return Math.max(0, calcDiscountAmount(toNumber(line.price), toNumber(line.qty), discount).sum_amount)
+}
+
+const totalValueVat = computed(() =>
+  validRows.value.reduce((sum, row) => Number(row.tax_type) === 1 ? sum : sum + lineSumAmount(row), 0),
+)
+
+const totalValueNoVat = computed(() =>
+  validRows.value.reduce((sum, row) => Number(row.tax_type) === 1 ? sum + lineSumAmount(row) : sum, 0),
+)
+
+function vatCalc(totalVat, totalNoVat, discWord, rate, type, discountType = 0, discountVatType = 0, promotionDiscountAmount = 0, amountPoint = 2) {
+  const p = amountPoint
+  const totalValue = totalVat + totalNoVat
+  const afterDiscount = calcAfterDiscount(discWord, totalValue, p)
+  const billDiscount = rnd(totalValue - afterDiscount, p)
+  const promotionDiscount = rnd(Math.abs(toNumber(promotionDiscountAmount)), p)
+  const totalDiscount = rnd(billDiscount + promotionDiscount, p)
+
+  let beforeVat = 0
+  let vatValue = 0
+  let afterVat = 0
+  let totalAmount = 0
+  let totalExceptVat = totalNoVat
+  let discountNoVatAmount = 0
+
+  switch (Number(type)) {
+    case 0:
+      if (Number(discountType) === 1) {
+        if (Number(discountVatType) === 1) {
+          const vatDiscount = totalValue > 0 ? rnd(totalDiscount * (totalVat / totalValue), p) : 0
+          discountNoVatAmount = totalDiscount - vatDiscount
+          beforeVat = totalVat - vatDiscount
+        } else if (totalVat < totalDiscount) {
+          beforeVat = 0
+          discountNoVatAmount = totalDiscount - totalVat
+        } else {
+          beforeVat = totalVat - totalDiscount
+        }
+        vatValue = totalVat < totalDiscount && Number(discountVatType) !== 1 ? 0 : rnd(beforeVat * (rate / 100), p)
+        afterVat = beforeVat + vatValue
+        totalExceptVat -= discountNoVatAmount
+        totalAmount = totalExceptVat + afterVat
+      } else {
+        beforeVat = totalVat
+        vatValue = rnd(beforeVat * (rate / 100), p)
+        afterVat = beforeVat + vatValue
+        totalAmount = beforeVat + totalExceptVat + vatValue - totalDiscount
+      }
+      break
+    case 1:
+      totalAmount = totalValue - totalDiscount
+      if (Number(discountType) === 1) {
+        if (Number(discountVatType) === 1) {
+          const vatDiscount = totalValue > 0 ? rnd(totalDiscount * (totalVat / totalValue), p) : 0
+          discountNoVatAmount = totalDiscount - vatDiscount
+          const base = totalVat - vatDiscount
+          beforeVat = rnd((base * 100) / (100 + rate), p)
+          vatValue = rnd(base - beforeVat, p)
+        } else if (totalVat < totalDiscount) {
+          beforeVat = 0
+          vatValue = 0
+          discountNoVatAmount = totalDiscount - totalVat
+        } else {
+          const base = totalVat - totalDiscount
+          beforeVat = rnd((base * 100) / (100 + rate), p)
+          vatValue = rnd(base - beforeVat, p)
+        }
+        afterVat = beforeVat + vatValue
+        totalExceptVat -= discountNoVatAmount
+      } else {
+        beforeVat = rnd((totalVat * 100) / (100 + rate), p)
+        vatValue = rnd(totalVat - beforeVat, p)
+        afterVat = beforeVat + vatValue
+      }
+      break
+    default:
+      vatValue = 0
+      if (Number(discountVatType) === 1 && totalValue > 0) {
+        const vatDiscount = rnd(totalDiscount * (totalVat / totalValue), p)
+        discountNoVatAmount = totalDiscount - vatDiscount
+      }
+      totalExceptVat -= discountNoVatAmount
+      totalAmount = totalValue - totalDiscount
+      break
+  }
+
+  return {
+    totalValue: rnd(totalValue, p),
+    totalDiscount: rnd(totalDiscount, p),
+    beforeVat: rnd(beforeVat, p),
+    vatValue: rnd(vatValue, p),
+    afterVat: rnd(afterVat, p),
+    totalExceptVat: rnd(totalExceptVat, p),
+    totalAmount: rnd(totalAmount, p),
+  }
+}
+
+const totals = computed(() =>
+  vatCalc(
+    totalValueVat.value,
+    totalValueNoVat.value,
+    discountWord.value,
+    toNumber(vatRate.value, 7),
+    vatType.value,
+    Number(posStore.erpOption?.discout_type ?? 0),
+    Number(posStore.erpOption?.discount_vat_type ?? posStore.erpOption?._discount_vat_type ?? 0),
+    promotionDiscountRaw.value,
+  ),
+)
+
+const promotionDiscountAmount = computed(() => rnd(Math.abs(toNumber(promotionDiscountRaw.value))))
+const billDiscountAmount = computed(() => Math.max(0, rnd(totals.value.totalDiscount - promotionDiscountAmount.value)))
+const totalExpenseOtherEntries = computed(() =>
+  paymentEntries.value
+    .filter((entry) => entry.type === 'expense')
+    .reduce((sum, entry) => sum + toNumber(entry.amount), 0),
+)
+const totalCreditChargeEntries = computed(() =>
+  paymentEntries.value
+    .filter((entry) => entry.type === 'credit')
+    .reduce((sum, entry) => sum + toNumber(entry.details?.charge), 0),
+)
+const totalPaid = computed(() =>
+  rnd(paymentEntries.value
+    .filter((entry) => entry.type !== 'expense')
+    .reduce((sum, entry) => sum + toNumber(entry.amount) + toNumber(entry.details?.charge), 0)),
+)
+const cashPaid = computed(() => rnd(paymentEntries.value.filter((entry) => entry.type === 'cash').reduce((sum, entry) => sum + toNumber(entry.amount), 0)))
+const selectedCashCurrency = computed(() =>
+  cashCurrencyOptions.find((currency) => currency.value === cashCurrencyCode.value) || cashCurrencyOptions[0],
+)
+const cashConvertedAmount = computed(() => rnd(toNumber(cashCurrencyAmount.value) * toNumber(cashExchangeRate.value)))
+const selectedOtherCurrency = computed(() => otherCurrency.value || null)
+const otherCurrencyRate = computed(() => toNumber(selectedOtherCurrency.value?.exchange_rate_present, 1))
+const otherCurrencyConvertedAmount = computed(() => rnd(toNumber(otherCurrencyAmount.value) * otherCurrencyRate.value))
+const selectedDocumentCurrency = computed(() => documentCurrency.value || null)
+const documentCurrencyAmount = computed(() => {
+  const rate = toNumber(documentExchangeRate.value, 1)
+  return rate > 0 ? rnd(totals.value.totalAmount / rate) : 0
+})
+const totalDue = computed(() => Math.max(0, rnd(totals.value.totalAmount + totalExpenseOtherEntries.value + totalCreditChargeEntries.value - toNumber(roundedAmount.value))))
+const remainingPayment = computed(() => Math.max(0, rnd(totalDue.value - totalPaid.value)))
+const paymentChange = computed(() => Math.max(0, rnd(totalPaid.value - totalDue.value)))
+const cashChangeAllowed = computed(() => paymentChange.value <= 0 || cashPaid.value >= paymentChange.value)
+const documentLocked = computed(() => saving.value || !!successDocNo.value)
+const customerCreditLimit = computed(() => toNumber(customerCredit.value?.credit_money))
+const customerCreditBalance = computed(() => toNumber(customerCredit.value?.total_balance))
+const customerCreditAfterSale = computed(() =>
+  rnd(customerCreditBalance.value + (isCreditSale.value ? totals.value.totalAmount : 0)),
+)
+const customerCreditExceeded = computed(() =>
+  isCreditSale.value && customerCreditLimit.value > 0 && customerCreditAfterSale.value > customerCreditLimit.value,
+)
+const customerCreditClosed = computed(() => isCreditSale.value && toNumber(customerCredit.value?.credit_status) !== 0)
+const showDocumentCurrency = computed(() => toNumber(paymentMasterOptions.value.multi_currency) === 1)
+const whtTotalAmount = computed(() => rnd(whtRows.value.reduce((sum, row) => sum + toNumber(row.amount), 0)))
+const whtTotalTax = computed(() => rnd(whtRows.value.reduce((sum, row) => sum + toNumber(row.tax_value), 0)))
+const manualGlDebitTotal = computed(() => rnd(manualGlRows.value.reduce((sum, row) => sum + toNumber(row.debit), 0)))
+const manualGlCreditTotal = computed(() => rnd(manualGlRows.value.reduce((sum, row) => sum + toNumber(row.credit), 0)))
+const manualGlBalanced = computed(() => manualGlRows.value.length === 0 || manualGlDebitTotal.value === manualGlCreditTotal.value)
+const creditChargePreview = computed(() => {
+  if (toNumber(paymentMasterOptions.value.input_credit_card_charge) === 1) return 0
+  return calcPaymentCharge(creditInputAmount.value, creditType.value?.charge_rate_word ?? creditType.value?.charge_rate)
+})
+const creditTotalPreview = computed(() => rnd(toNumber(creditInputAmount.value) + creditChargePreview.value))
+
+function paymentTypeAmount(type, includeCharge = false) {
+  return rnd(paymentEntries.value
+    .filter((entry) => entry.type === type)
+    .reduce((sum, entry) => sum + toNumber(entry.amount) + (includeCharge ? toNumber(entry.details?.charge) : 0), 0))
+}
+
+const paymentBreakdownRows = computed(() => [
+  { key: 'cash', label: 'เงินสด', amount: paymentTypeAmount('cash') },
+  { key: 'transfer', label: 'โอน', amount: paymentTypeAmount('transfer') },
+  { key: 'cheque', label: 'เช็ค', amount: paymentTypeAmount('cheque') },
+  { key: 'credit', label: 'บัตรเครดิต', amount: paymentTypeAmount('credit', true) },
+  { key: 'petty', label: 'เงินสดย่อย', amount: paymentTypeAmount('petty') },
+  { key: 'deposit', label: 'เงินล่วงหน้า', amount: paymentTypeAmount('deposit') },
+  { key: 'coupon', label: 'คูปอง', amount: paymentTypeAmount('coupon') },
+  { key: 'income', label: 'รายได้อื่น', amount: paymentTypeAmount('income') },
+  { key: 'currency', label: 'สกุลเงินอื่น', amount: paymentTypeAmount('currency') },
+  { key: 'wallet', label: 'Wallet', amount: paymentTypeAmount('wallet') },
+].filter((row) => row.amount > 0))
+
+const paymentDetailRows = computed(() => [
+  { label: 'ยอดเอกสาร', amount: totals.value.totalAmount },
+  { label: 'Charge บัตรเครดิต', amount: totalCreditChargeEntries.value, muted: totalCreditChargeEntries.value === 0 },
+  { label: 'รายจ่ายอื่น', amount: totalExpenseOtherEntries.value, muted: totalExpenseOtherEntries.value === 0 },
+  { label: 'ปัดเศษ/ส่วนต่าง', amount: toNumber(roundedAmount.value) * -1, muted: toNumber(roundedAmount.value) === 0 },
+  { label: 'ยอดต้องรับ', amount: totalDue.value, strong: true },
+  { label: 'รับแล้ว', amount: totalPaid.value },
+  { label: paymentChange.value > 0 ? 'เงินทอน' : 'คงเหลือ', amount: paymentChange.value > 0 ? paymentChange.value : remainingPayment.value, attention: paymentChange.value > 0 || remainingPayment.value > 0 },
+])
+
+const promotionStatus = computed(() => {
+  if (!validRows.value.length) return 'idle'
+  if (promotionLoading.value || promotionDirty.value) return 'calculating'
+  if (promotionError.value) return 'error'
+  if (promotionLastCalculatedAt.value) return 'success'
+  return 'idle'
+})
+
+const promotionStatusText = computed(() => ({
+  idle: 'ยังไม่คำนวณ',
+  calculating: 'กำลังคำนวณ',
+  success: 'คำนวณแล้ว',
+  error: 'คำนวณไม่สำเร็จ',
+}[promotionStatus.value]))
+
+const promotionStatusClass = computed(() => `status-${promotionStatus.value}`)
+
+function relatedItemFromRow(row) {
+  return {
+    item_code: row.item_code || row._itemCode || '',
+    item_name: row.item_name || row._itemName || row.name_1 || '',
+    unit_code: row.unit_code || row._unitCode || '',
+    qty: toNumber(row.qty ?? row._qty),
+    amount: toNumber(row.amount ?? row._amount ?? row.sum_amount),
+  }
+}
+
+function promotionRelatedItems(promotion) {
+  const directRows = promotion?._relatedItems || promotion?.related_items || promotion?.relatedItems || []
+  if (Array.isArray(directRows) && directRows.length) return directRows.map(relatedItemFromRow)
+
+  const itemCode = promotion?._itemCode || promotion?.item_code || ''
+  if (itemCode) {
+    return validRows.value
+      .filter((row) => row.item_code === itemCode)
+      .map((row) => relatedItemFromRow({ ...row, amount: lineSumAmount(row) }))
+  }
+  return []
+}
+
+const promotionAuditRows = computed(() =>
+  promotionResults.value.map((promotion, index) => {
+    const code = promotion._promotionCode || promotion.promotion_code || promotion.promotionCode || ''
+    const name = promotion._promotionName || promotion.promotion_name || promotion.promotionName || code || 'Promotion'
+    const qty = toNumber(promotion._qty ?? promotion.qty)
+    const count = toNumber(promotion._count ?? promotion.count)
+    const amount = Math.abs(toNumber(promotion._amount ?? promotion.amount))
+    return {
+      key: `${code || index}-${index}`,
+      code,
+      name,
+      qty,
+      count,
+      amount,
+      relatedItems: promotionRelatedItems(promotion),
+    }
+  }),
+)
+
+function promotionGuideKey(itemCode, unitCode) {
+  return `${String(itemCode || '').trim()}|${String(unitCode || '').trim()}`
+}
+
+function buildPromotionGuideItems() {
+  return buildPromotionItems()
+}
+
+const promotionGuideSignature = computed(() => JSON.stringify({
+  pos_id: posStore.posId || '',
+  member_code: custCode.value || defaultCustomerCode,
+  doc_date: docDate.value,
+  promotion_fixed_unitcode: posStore.erpOption?.promotion_fixed_unitcode ?? posStore.erpOption?._promotion_fixed_unitcode ?? '',
+  items: buildPromotionGuideItems(),
+}))
+
+function linePromotionGuides(line) {
+  return promotionGuideMap.value[promotionGuideKey(line?.item_code, line?.unit_code)]?.promotions || []
+}
+
+function lineHasPromotionGuide(line) {
+  return linePromotionGuides(line).length > 0
+}
+
+const promotionGuideDialogPromotions = computed(() =>
+  promotionGuideDialogLine.value ? linePromotionGuides(promotionGuideDialogLine.value) : [],
+)
+
+const priceSignature = computed(() => [
+  custCode.value || '',
+  inquiryType.value,
+  vatType.value,
+  vatRate.value,
+  ...rows.value.map((row) => [
+    row.id,
+    row.item_code,
+    row.unit_code,
+    toNumber(row.qty),
+  ].join(':')),
+].join('|'))
+
+const promotionSignature = computed(() => [
+  custCode.value || '',
+  inquiryType.value,
+  vatType.value,
+  vatRate.value,
+  ...validRows.value.map((row) => [
+    row.id,
+    row.item_code,
+    row.unit_code,
+    toNumber(row.qty),
+    toNumber(row.price),
+    String(row.discount || ''),
+    lineSumAmount(row),
+    toNumber(row.price_type ?? 1),
+  ].join(':')),
+].join('|'))
+
+watch(totalDue, (amount) => {
+  if (paymentEntries.value.length) {
+    if (paymentReviewTotal.value === null) {
+      paymentReviewTotal.value = amount
+    } else if (rnd(amount) !== rnd(paymentReviewTotal.value)) {
+      paymentReviewNeeded.value = true
+    }
+    return
+  }
+  paymentReviewNeeded.value = false
+  paymentReviewTotal.value = null
+  setCashAmountFromBaht(amount)
+  if (!transferInputAmount.value) transferInputAmount.value = amount
+  if (!creditInputAmount.value) creditInputAmount.value = amount
+})
+
+watch(cashConvertedAmount, (amount) => {
+  cashInputAmount.value = amount
+})
+
+watch(paymentEntries, (entries) => {
+  if (!entries.length) {
+    paymentReviewNeeded.value = false
+    paymentReviewTotal.value = null
+  }
+}, { deep: true })
+
+watch(isCreditSale, (creditSale) => {
+  if (!creditSale) {
+    activePayType.value = 'cash'
+    refreshPaymentReviewAfterEdit()
+    return
+  }
+  paymentEntries.value = []
+  paymentReviewNeeded.value = false
+  paymentReviewTotal.value = null
+  cashInputAmount.value = 0
+  cashCurrencyAmount.value = 0
+  transferInputAmount.value = 0
+  creditInputAmount.value = 0
+})
+
+watch(activePayType, (type) => {
+  if (type === 'coupon' && !couponOptions.value.length) void refreshCouponOptions()
+  if (type === 'deposit' && !depositOptions.value.length) void refreshDepositOptions()
+  if (type === 'currency' && !otherCurrency.value && currencyTypes.value.length) otherCurrency.value = currencyTypes.value[0]
+})
+
+watch(docDate, (value) => {
+  transferDate.value = value
+  chequeDueDate.value = value
+  sendDate.value = value
+  deliveryDate.value = value
+  dueDate.value = addDaysISO(value, creditDay.value)
+  taxDocDate.value = value
+})
+
+watch(creditDay, (days) => {
+  dueDate.value = addDaysISO(docDate.value, days)
+})
+
+watch(custCode, () => {
+  void refreshCustomerCredit()
+})
+
+watch(documentCurrency, (currency) => {
+  documentExchangeRate.value = toNumber(currency?.exchange_rate_present, 1)
+})
+
+watch(visiblePaymentTypeOptions, (tabs) => {
+  if (!tabs.some((tab) => tab.value === activePayType.value)) activePayType.value = 'cash'
+}, { immediate: true })
+
+watch(couponSelected, (coupon) => {
+  if (!coupon) {
+    couponAmount.value = 0
+    return
+  }
+  const amount = toNumber(coupon.amount)
+  const availableAmount = toNumber(coupon.available_amount ?? coupon.usable_amount, NaN)
+  if (String(coupon.coupon_type) === '1') {
+    couponAmount.value = Number.isFinite(availableAmount)
+      ? availableAmount
+      : rnd(totals.value.totalAmount - calcAfterDiscount(`${amount}%`, totals.value.totalAmount, 2))
+  } else {
+    couponAmount.value = Number.isFinite(availableAmount)
+      ? availableAmount
+      : toNumber(coupon.balance_amount, amount)
+  }
+})
+
+watch(depositDoc, (doc) => {
+  depositAmount.value = doc ? toNumber(doc.balance_amount) : 0
+})
+
+watch(priceSignature, () => {
+  schedulePriceRefresh()
+})
+
+watch(promotionSignature, () => {
+  schedulePromotionCalculation()
+})
+
+watch(promotionGuideSignature, () => {
+  schedulePromotionGuideCheck()
+})
+
+watch(priceRefreshing, (isRefreshing) => {
+  if (!isRefreshing && promotionDirty.value) schedulePromotionCalculation(50)
+})
+
+const validationMessages = computed(() => {
+  const messages = []
+  if (!docFormatCode.value) messages.push('กรุณาเลือกรหัสเอกสาร')
+  if (!validRows.value.length) messages.push('กรุณาเพิ่มรายการสินค้า')
+  if (priceRefreshing.value) messages.push('กำลังดึงราคาสินค้า')
+  if (rows.value.some((row) => row.price_error)) messages.push('ดึงราคาสินค้าบางรายการไม่สำเร็จ')
+  if (promotionDirty.value || promotionLoading.value) messages.push('ยังบันทึกไม่ได้ เพราะระบบกำลังคำนวณโปรโมชั่น')
+  if (promotionError.value) messages.push('ยังบันทึกไม่ได้ เพราะยังคำนวณโปรโมชั่นไม่สำเร็จ')
+  if (!String(saleCode.value || '').trim()) messages.push('กรุณาเลือกพนักงานขาย')
+  if (totals.value.totalAmount < 0) messages.push('ส่วนลดท้ายบิลมากกว่ายอดสินค้า')
+  if (paymentReviewNeeded.value) messages.push('ยอดเอกสารเปลี่ยนหลังมีรายการชำระเงิน กรุณาตรวจสอบการรับชำระ')
+  if (isCashSale.value && remainingPayment.value > 0) messages.push(`ยอดชำระยังไม่ครบ คงเหลือ ${formatCurrency(remainingPayment.value)}`)
+  if (isCashSale.value && !cashChangeAllowed.value) messages.push('เงินทอนต้องมาจากยอดรับเงินสดเท่านั้น')
+  if (!manualGlBalanced.value) messages.push('ยอดเดบิต/เครดิต GL ต้องเท่ากัน')
+  return messages
+})
+
+const canSave = computed(() => !saving.value && !successDocNo.value)
+const saveDialogIcon = computed(() => ({
+  success: 'pi pi-check-circle',
+  error: 'pi pi-times-circle',
+  warn: 'pi pi-exclamation-triangle',
+  info: 'pi pi-info-circle',
+}[saveDialogType.value] || 'pi pi-info-circle'))
+
+function openSaveDialog({
+  type = 'info',
+  title = '',
+  message = '',
+  details = [],
+  primaryLabel = '',
+  primarySeverity = 'warning',
+  primaryAction = null,
+} = {}) {
+  saveDialogType.value = type
+  saveDialogTitle.value = title
+  saveDialogMessage.value = message
+  saveDialogDetails.value = Array.isArray(details) ? details.filter(Boolean) : []
+  saveDialogPrimaryLabel.value = primaryLabel
+  saveDialogPrimarySeverity.value = primarySeverity
+  saveDialogPrimaryAction.value = typeof primaryAction === 'function' ? primaryAction : null
+  saveDialogVisible.value = true
+}
+
+async function runSaveDialogPrimaryAction() {
+  const action = saveDialogPrimaryAction.value
+  saveDialogVisible.value = false
+  saveDialogPrimaryAction.value = null
+  if (action) await action()
+}
+
+onMounted(async () => {
+  loading.value = true
+  errorMsg.value = ''
+  try {
+    saleCode.value = authStore.employee?.user_code || ''
+    saleName.value = authStore.employee?.user_name || ''
+    const [formats, paymentMasters] = await Promise.all([
+      getSaleDocFormatList(),
+      getPaymentMasterLists().catch(async () => ({
+        pass_books: await getPassBookList().catch(() => []),
+        credit_types: await getCreditTypeList().catch(() => []),
+      })),
+    ])
+    warehouseOptions.value = await getWarehouseList().catch(() => [])
+    if (posStore.selectedPos?.pos_ic_wht) void ensureShelfOptions(posStore.selectedPos.pos_ic_wht)
+    docFormats.value = formats
+    passBooks.value = (paymentMasters.pass_books || []).map((row) => ({
+      ...row,
+      label: `${row.book_code || row.pass_book_code || row.code || ''} ${row.bank_name || row.bank_code || ''}`.trim(),
+    }))
+    creditTypes.value = (paymentMasters.credit_types || []).map((row) => ({
+      ...row,
+      label: row.name_1 || row.name || row.code,
+    }))
+    pettyCashList.value = (paymentMasters.petty_cash || []).map((row) => ({
+      ...row,
+      label: `${row.code || ''} ${row.name_1 || ''}`.trim(),
+    }))
+    incomeTypes.value = (paymentMasters.income_list || []).map((row) => ({
+      ...row,
+      label: `${row.code || ''} ${row.name_1 || ''}`.trim(),
+    }))
+    expenseTypes.value = (paymentMasters.expense_list || []).map((row) => ({
+      ...row,
+      label: `${row.code || ''} ${row.name_1 || ''}`.trim(),
+    }))
+    currencyTypes.value = (paymentMasters.currencies || []).map((row) => ({
+      ...row,
+      label: `${row.code || ''} ${row.name_1 || ''}`.trim(),
+    }))
+    walletTypes.value = (paymentMasters.wallets || []).map((row) => ({
+      ...row,
+      label: `${row.code || ''} ${row.name_1 || ''}`.trim(),
+    }))
+    transportTypes.value = (paymentMasters.transport_types || []).map((row) => ({
+      ...row,
+      label: `${row.code || ''} ${row.name_1 || ''}`.trim(),
+    }))
+    shippingLabels.value = (paymentMasters.shipping_labels || []).map((row) => ({
+      ...row,
+      label: `${row.ship_code || ''} ${row.name_1 || ''}`.trim() || row.address || row.telephone || '-',
+    }))
+    glAccounts.value = (paymentMasters.gl_accounts || []).map((row) => ({
+      ...row,
+      label: `${row.code || ''} ${row.name_1 || ''}`.trim(),
+    }))
+    paymentMasterOptions.value = paymentMasters.options || {
+      multi_currency: 0,
+      input_credit_card_charge: 0,
+      coupon_full_amount: 0,
+      home_currency: '',
+      currency_exchange_decimal: 2,
+    }
+
+    const posDocFormat = posStore.selectedPos?.doc_format_code || posStore.selectedPos?.doc_format || ''
+    docFormatCode.value = formats.find((row) => row.code === posDocFormat)?.code || formats[0]?.code || ''
+    documentCurrency.value = currencyTypes.value.find((row) => row.code === paymentMasterOptions.value.home_currency) || currencyTypes.value.find((row) => row.code === 'THB') || null
+    documentExchangeRate.value = toNumber(documentCurrency.value?.exchange_rate_present, 1)
+    await refreshCustomerCredit()
+    setCashAmountFromBaht(totals.value.totalAmount)
+  } catch (error) {
+    errorMsg.value = error.message || 'โหลดข้อมูลหน้าขายไม่สำเร็จ'
+  } finally {
+    loading.value = false
+    await nextTick()
+    barcodeRef.value?.$el?.querySelector?.('input')?.focus?.()
+  }
+})
+
+function selectWalkIn() {
+  custCode.value = defaultCustomerCode
+  custName.value = defaultCustomerName
+  custSearch.value = ''
+  custResults.value = []
+  customerDialogVisible.value = false
+}
+
+function openCustomerDialog() {
+  if (documentLocked.value) return
+  custSearch.value = ''
+  custResults.value = []
+  customerDialogVisible.value = true
+}
+
+function searchCustomers(value) {
+  clearTimeout(custTimer)
+  const query = String(value || '').trim()
+  if (!query) {
+    custResults.value = []
+    return
+  }
+  custTimer = setTimeout(async () => {
+    custLoading.value = true
+    try {
+      custResults.value = await getCustomerList(query)
+    } finally {
+      custLoading.value = false
+    }
+  }, 250)
+}
+
+async function loadCustomers() {
+  clearTimeout(custTimer)
+  const query = String(custSearch.value || '').trim()
+  if (!query) {
+    custResults.value = []
+    return
+  }
+  custLoading.value = true
+  try {
+    custResults.value = await getCustomerList(query)
+  } finally {
+    custLoading.value = false
+  }
+}
+
+function selectCustomer(customer) {
+  custCode.value = customer.code || ''
+  custName.value = customer.name || customer.name_1 || ''
+  custSearch.value = ''
+  custResults.value = []
+  customerDialogVisible.value = false
+}
+
+async function refreshCustomerCredit() {
+  const code = String(custCode.value || '').trim()
+  customerCredit.value = null
+  customerCreditError.value = ''
+  creditDay.value = 0
+  dueDate.value = docDate.value
+  if (!code) return
+  customerCreditLoading.value = true
+  try {
+    const [credit, totalBalance] = await Promise.all([
+      getCustomerCredit(code),
+      getCustomerTotalBalance(code).catch(() => 0),
+    ])
+    customerCredit.value = { ...(credit || {}), total_balance: totalBalance }
+    creditDay.value = toNumber(credit?.credit_day)
+    dueDate.value = credit?.credit_date ? String(credit.credit_date).slice(0, 10) : addDaysISO(docDate.value, creditDay.value)
+  } catch (error) {
+    customerCreditError.value = error.message || 'โหลดข้อมูลเครดิตลูกค้าไม่สำเร็จ'
+    dueDate.value = addDaysISO(docDate.value, creditDay.value)
+  } finally {
+    customerCreditLoading.value = false
+  }
+}
+
+function resetShipment() {
+  shipment.value = {
+    transport_name: '',
+    transport_address: '',
+    transport_telephone: '',
+    transport_fax: '',
+    transport_tambon: '',
+    transport_amper: '',
+    transport_province: '',
+    transport_country: '',
+    zipcode: '',
+    transport_code: '',
+    destination: '',
+    remark: '',
+    remark_2: '',
+    ship_code: '',
+    logistic_area: '',
+    latitude: 0,
+    longitude: 0,
+  }
+  selectedShippingLabel.value = null
+}
+
+function applyShippingLabel(label) {
+  selectedShippingLabel.value = label
+  if (!label) return
+  shipment.value = {
+    ...shipment.value,
+    transport_name: label.name_1 || '',
+    transport_address: label.address || '',
+    transport_telephone: label.telephone || '',
+    transport_fax: label.fax || '',
+    transport_tambon: label.tambon || '',
+    transport_amper: label.amper || '',
+    transport_province: label.province || '',
+    transport_country: label.country || '',
+    zipcode: label.zip_code || '',
+    transport_code: label.transport_type || shipment.value.transport_code || '',
+    ship_code: label.ship_code || '',
+    logistic_area: label.logistic_area || '',
+    latitude: toNumber(label.latitude),
+    longitude: toNumber(label.longitude),
+    remark: label.remark_1 || shipment.value.remark,
+    remark_2: label.remark_2 || shipment.value.remark_2,
+  }
+}
+
+function addWhtRow() {
+  const amount = toNumber(whtAmount.value)
+  const rate = toNumber(whtRate.value)
+  if (documentLocked.value || amount <= 0 || rate < 0) return
+  whtRows.value.push({
+    id: makeLineId(),
+    income_type: String(whtIncomeType.value || '').trim(),
+    amount,
+    tax_rate: rate,
+    tax_value: rnd(amount * (rate / 100)),
+  })
+  whtIncomeType.value = ''
+  whtAmount.value = 0
+  whtRate.value = 0
+}
+
+function removeWhtRow(id) {
+  if (documentLocked.value) return
+  whtRows.value = whtRows.value.filter((row) => row.id !== id)
+}
+
+function addManualGlRow() {
+  if (documentLocked.value || !manualGlAccount.value) return
+  const debit = toNumber(manualGlDebit.value)
+  const credit = toNumber(manualGlCredit.value)
+  if (debit <= 0 && credit <= 0) return
+  manualGlRows.value.push({
+    id: makeLineId(),
+    account_code: manualGlAccount.value.code || '',
+    account_name: manualGlAccount.value.name_1 || '',
+    debit,
+    credit,
+  })
+  manualGlAccount.value = null
+  manualGlDebit.value = 0
+  manualGlCredit.value = 0
+}
+
+function removeManualGlRow(id) {
+  if (documentLocked.value) return
+  manualGlRows.value = manualGlRows.value.filter((row) => row.id !== id)
+}
+
+function resetEmployeeToDefault() {
+  saleCode.value = authStore.employee?.user_code || ''
+  saleName.value = authStore.employee?.user_name || ''
+  saleSearch.value = ''
+  saleResults.value = []
+  employeeDialogVisible.value = false
+}
+
+function openEmployeeDialog() {
+  if (documentLocked.value) return
+  saleSearch.value = ''
+  saleResults.value = []
+  employeeDialogVisible.value = true
+}
+
+async function searchEmployees(value) {
+  clearTimeout(saleTimer)
+  const query = String(value || '').trim()
+  if (!query) {
+    saleResults.value = []
+    return
+  }
+  saleTimer = setTimeout(async () => {
+    saleLoading.value = true
+    try {
+      const { data } = await api.get('/getEmployeeList', { params: { search: query } })
+      saleResults.value = data.data || []
+    } finally {
+      saleLoading.value = false
+    }
+  }, 250)
+}
+
+async function loadEmployees() {
+  clearTimeout(saleTimer)
+  const query = String(saleSearch.value || '').trim()
+  if (!query) {
+    saleResults.value = []
+    return
+  }
+  saleLoading.value = true
+  try {
+    const { data } = await api.get('/getEmployeeList', { params: { search: query } })
+    saleResults.value = data.data || []
+  } finally {
+    saleLoading.value = false
+  }
+}
+
+function selectEmployee(employee) {
+  saleCode.value = employee.code || ''
+  saleName.value = employee.name || employee.name_1 || ''
+  saleSearch.value = ''
+  saleResults.value = []
+  employeeDialogVisible.value = false
+}
+
+function parseBarcodeInput(value) {
+  let text = String(value || '').trim()
+  let qty = 1
+  const qtyMatch = text.match(/^(\d+(?:\.\d+)?)\s*\*\s*(.+)$/)
+  if (qtyMatch) {
+    qty = Number(qtyMatch[1])
+    text = qtyMatch[2].trim()
+  }
+  const shelfIndex = text.indexOf('#')
+  if (shelfIndex >= 0) text = text.slice(0, shelfIndex).trim()
+  return { barcode: text, qty: Number.isFinite(qty) && qty > 0 ? qty : 1 }
+}
+
+function unitRatio(unit) {
+  return Math.max(1, Number(unit?.ratio) || Number(unit?.stand_value) / Number(unit?.divide_value || 1) || 1)
+}
+
+function isServiceItem(row) {
+  return String(row?.item_type ?? '') === '1'
+}
+
+// สินค้าชุด (item_type=3) — ห้ามเช็คสต๊อกที่ frontend, ราคาดึงจาก /getProductSetDetail
+// children เก็บใน line.sub_item แล้วส่งไป backend (backend จะ persist child rows ให้)
+function isSetItem(row) {
+  return String(row?.item_type ?? '') === '3'
+}
+
+// เลือก unit ที่ตรงกับ start_sale_unit จาก rows ของ getProductSetDetail
+// (smlstaff-ubon ใช้ pattern เดียวกัน)
+function pickSetUnitRow(rows, product) {
+  if (!Array.isArray(rows) || rows.length === 0) return null
+  const preferred = product?.unit_code || product?.start_sale_unit || product?.unit_standard || product?.unit_cost || ''
+  return rows.find((r) => r.unit_code === preferred) || rows[0]
+}
+
+function unitBaseBalance(unit, ratio = unitRatio(unit)) {
+  return Number(unit?.sum_balance_qty ?? (Number(unit?.balance_qty ?? 0) * ratio))
+}
+
+function preferredUnit(product, units) {
+  if (product.unit_code) {
+    return units.find((unit) => unit.unit_code === product.unit_code) || product
+  }
+  const preferred = product.start_sale_unit || product.unit_standard || product.unit_cost || ''
+  return units.find((unit) => unit.unit_code === preferred) || units[0] || product
+}
+
+async function resolveSelectedUnit(product, barcode = '') {
+  const selectedBarcode = barcode || product.barcode || ''
+
+  // สินค้าชุด: ต้องดึงหน่วย/ราคาจาก /getProductSetDetail เสมอ
+  // (ห้ามใช้ /getProductDetail หรือ barcode unit เพราะราคาจะคำนวณผิด)
+  if (isSetItem(product)) {
+    const setRows = await getProductSetDetail(product.item_code, custCode.value, priceOpts())
+    const setUnit = pickSetUnitRow(setRows, product)
+    if (!setUnit) throw new Error('ไม่พบรายละเอียดสินค้าชุด')
+    return {
+      ...product,
+      ...setUnit,
+      barcode: selectedBarcode || setUnit.barcode || product.barcode || '',
+      item_type: '3',
+    }
+  }
+
+  const hasStockDetail = product.item_code && product.unit_code && (
+    product.balance_qty !== undefined || product.sum_balance_qty !== undefined
+  )
+  if (hasStockDetail) {
+    return { ...product, barcode: selectedBarcode || product.barcode || '' }
+  }
+
+  if (selectedBarcode) {
+    const barcodeUnit = await getProductByBarcodeDetail(selectedBarcode).catch(() => null)
+    if (barcodeUnit?.item_code) {
+      return {
+        ...product,
+        ...barcodeUnit,
+        barcode: selectedBarcode,
+        unit_code: barcodeUnit.unit_code || product.unit_code,
+      }
+    }
+  }
+
+  const units = await getProductDetail(product.item_code, custCode.value, priceOpts())
+  return preferredUnit(product, units)
+}
+
+async function makeLine(product, qty = 1, barcode = '') {
+  const unit = await resolveSelectedUnit(product, barcode)
+  if (!unit?.item_code) throw new Error('ไม่พบหน่วยขายของสินค้า')
+  const effectiveBarcode = barcode || unit.barcode || product.barcode || ''
+  const itemType = String(unit.item_type ?? product.item_type ?? '0')
+  const isSet = itemType === '3'
+
+  // สินค้าชุด: ราคามาจาก getProductSetDetail แล้ว (อยู่ใน unit.price) — ไม่เรียก getProductPrice
+  // และต้องโหลด sub_item (children) เก็บไว้ใน line เพื่อส่งไป backend ตอน save
+  let priceResult = null
+  let subItems = []
+  if (isSet) {
+    priceResult = {
+      price: unit.price,
+      defaultDiscount: unit.defaultDiscount || '',
+      type: unit.type ?? unit.price_type ?? 1,
+      mode: unit.mode ?? '',
+    }
+    subItems = await getProductSetItem(unit.item_code).catch(() => [])
+  } else {
+    priceResult = await getProductPrice(unit.item_code, unit.unit_code, custCode.value, String(qty), {
+      ...priceOpts(),
+      barcode: effectiveBarcode,
+    })
+  }
+
+  const ratio = unitRatio(unit)
+  const line = {
+    id: makeLineId(),
+    item_code: unit.item_code,
+    item_name: unit.item_name || product.item_name || product.name_1 || '',
+    unit_code: unit.unit_code,
+    barcode: effectiveBarcode,
+    qty,
+    price: toNumber(priceResult?.price ?? product.price ?? unit.price ?? 0),
+    discount: priceResult?.defaultDiscount || '',
+    price_type: toNumber(priceResult?.type ?? unit.type ?? product.type ?? priceResult?.price_type ?? unit.price_type ?? product.price_type ?? 1, 1),
+    price_info: priceResult?.mode ?? unit.mode ?? '',
+    price_default: toNumber(priceResult?.price ?? product.price_default ?? product.price ?? unit.price ?? 0),
+    have_point: unit.have_point === true || unit.have_point === '1' || product.have_point === true || product.have_point === '1',
+    drink_type: toNumber(unit.drink_type ?? product.drink_type ?? 0),
+    no_discount: unit.no_discount === true || unit.no_discount === '1' || product.no_discount === true || product.no_discount === '1',
+    price_loading: false,
+    price_error: '',
+    discount_amount: 0,
+    sum_amount: 0,
+    tax_type: toNumber(unit.tax_type ?? product.tax_type ?? 0),
+    item_type: itemType,
+    wh_code: unit.wh_code || unit.start_sale_wh || posStore.selectedPos?.pos_ic_wht || '',
+    shelf_code: unit.shelf_code || unit.start_sale_shelf || posStore.selectedPos?.pos_ic_shelf || '',
+    stand_value: toNumber(unit.stand_value, 1),
+    divide_value: toNumber(unit.divide_value, 1),
+    ratio,
+    balance_base: isSet ? 0 : unitBaseBalance(unit, ratio),
+    remark: '',
+    // children ของสินค้าชุด — backend จะ persist เป็น ic_trans_detail child rows
+    sub_item: isSet ? subItems : [],
+  }
+  if (line.wh_code) void ensureShelfOptions(line.wh_code)
+  return line
+}
+
+function mergeOrPushLine(line) {
+  const existing = rows.value.find((row) =>
+    row.item_code === line.item_code &&
+    row.unit_code === line.unit_code &&
+    String(row.barcode || '') === String(line.barcode || '') &&
+    String(row.wh_code || '') === String(line.wh_code || '') &&
+    String(row.shelf_code || '') === String(line.shelf_code || '')
+  )
+  if (existing) {
+    existing.qty = rnd(toNumber(existing.qty) + toNumber(line.qty))
+    existing.price = line.price
+    existing.discount = line.discount
+    existing.price_type = line.price_type
+    existing.price_info = line.price_info
+    existing.price_default = line.price_default
+    existing.have_point = line.have_point
+    existing.drink_type = line.drink_type
+    existing.no_discount = line.no_discount
+    // สินค้าชุด: refresh sub_item ด้วย (เผื่อ child price/qty เปลี่ยนตาม customer)
+    if (isSetItem(line) && Array.isArray(line.sub_item) && line.sub_item.length) {
+      existing.sub_item = line.sub_item
+    }
+    return
+  }
+  rows.value.push(line)
+}
+
+function inputEventValue(event) {
+  return event?.value ?? event?.target?.value ?? event
+}
+
+function setLineQty(line, value) {
+  if (documentLocked.value) return
+  const qty = toNumber(inputEventValue(value))
+  if (qty < 0) return
+  line.qty = qty
+  schedulePriceRefresh()
+}
+
+function setLinePrice(line, value) {
+  if (documentLocked.value) return
+  const price = toNumber(inputEventValue(value))
+  if (price < 0) return
+  line.price = price
+  line.price_error = ''
+}
+
+function adjustLineQty(line, delta) {
+  if (documentLocked.value) return
+  setLineQty(line, rnd(toNumber(line.qty) + delta))
+}
+
+function openPriceEditor(line) {
+  if (documentLocked.value || line.price_loading) return
+  priceEditLine.value = line
+  priceEditValue.value = toNumber(line.price)
+  priceEditorVisible.value = true
+}
+
+function confirmPriceEditor() {
+  if (!priceEditLine.value) return
+  setLinePrice(priceEditLine.value, priceEditValue.value)
+  priceEditorVisible.value = false
+  priceEditLine.value = null
+}
+
+function openRemarkEditor(line) {
+  if (documentLocked.value) return
+  remarkEditLine.value = line
+  remarkEditText.value = line.remark || ''
+  remarkEditorVisible.value = true
+}
+
+function confirmRemarkEditor() {
+  if (!remarkEditLine.value) return
+  remarkEditLine.value.remark = remarkEditText.value.trim()
+  remarkEditorVisible.value = false
+  remarkEditLine.value = null
+}
+
+function schedulePriceRefresh(delay = 350) {
+  clearTimeout(priceRefreshTimer)
+  if (!rows.value.length) return
+  priceRefreshTimer = setTimeout(() => {
+    void refreshLinePrices()
+  }, delay)
+}
+
+async function refreshLinePrices() {
+  if (!rows.value.length) return
+  const runId = ++priceRefreshRunId
+  priceRefreshing.value = true
+  try {
+    await Promise.all(rows.value.map(async (line) => {
+      if (!line.item_code || !line.unit_code || toNumber(line.qty) <= 0) return
+      line.price_loading = true
+      line.price_error = ''
+      try {
+        // สินค้าชุด: ใช้ /getProductSetDetail (ราคา parent ตาม customer/sale_type/vat)
+        // และ re-fetch sub_item เผื่อ children ถูกแก้ใน master
+        if (isSetItem(line)) {
+          const setRows = await getProductSetDetail(line.item_code, custCode.value, priceOpts())
+          if (runId !== priceRefreshRunId) return
+          const setUnit = setRows.find((r) => r.unit_code === line.unit_code) || setRows[0] || null
+          if (setUnit) {
+            line.price = toNumber(setUnit.price ?? line.price)
+            line.price_default = toNumber(setUnit.price ?? line.price_default ?? line.price)
+            line.price_type = toNumber(setUnit.type ?? setUnit.price_type ?? line.price_type ?? 1, 1)
+            line.price_info = setUnit.mode ?? line.price_info ?? ''
+          }
+          const subItems = await getProductSetItem(line.item_code).catch(() => null)
+          if (runId !== priceRefreshRunId) return
+          if (Array.isArray(subItems) && subItems.length) line.sub_item = subItems
+          return
+        }
+
+        const price = await getProductPrice(line.item_code, line.unit_code, custCode.value, String(line.qty), {
+          ...priceOpts(),
+          barcode: line.barcode || '',
+        })
+        if (runId !== priceRefreshRunId) return
+        line.price = toNumber(price?.price ?? line.price)
+        line.discount = price?.defaultDiscount ?? line.discount ?? ''
+        line.price_type = toNumber(price?.type ?? price?.price_type ?? line.price_type ?? 1, 1)
+        line.price_info = price?.mode ?? line.price_info ?? ''
+        line.price_default = toNumber(price?.price ?? line.price_default ?? line.price)
+      } catch (error) {
+        if (runId !== priceRefreshRunId) return
+        line.price_error = error.message || 'ดึงราคาไม่สำเร็จ'
+      } finally {
+        if (runId === priceRefreshRunId) line.price_loading = false
+      }
+    }))
+  } finally {
+    if (runId === priceRefreshRunId) priceRefreshing.value = false
+  }
+}
+
+function clearPromotionCalculation() {
+  clearTimeout(promotionTimer)
+  promotionRunId += 1
+  promotionLoading.value = false
+  promotionDirty.value = false
+  promotionError.value = ''
+  promotionResults.value = []
+  promotionProductRows.value = []
+  promotionDiscountRaw.value = 0
+  promotionLastCalculatedAt.value = ''
+}
+
+function promotionDiscountNumber(line) {
+  return String(line.discount || line.discount_amount || '').trim() ? 1 : 0
+}
+
+function buildPromotionItems() {
+  return validRows.value.map((line) => ({
+    item_code: line.item_code,
+    item_name: line.item_name,
+    unit_code: line.unit_code,
+    barcode: line.barcode || '',
+    qty: toNumber(line.qty),
+    price: toNumber(line.price),
+    amount: lineSumAmount(line),
+    discount_word: line.discount || '',
+    discount: lineDiscountAmount(line),
+    tax_type: toNumber(line.tax_type),
+    vat_type: vatType.value,
+    vat_rate: toNumber(vatRate.value, 7),
+    stand_value: toNumber(line.stand_value, 1),
+    divide_value: toNumber(line.divide_value, 1),
+    price_type: toNumber(line.price_type ?? 1, 1),
+    price_default: toNumber(line.price_default ?? line.price),
+    price_info: line.price_info || '',
+    discount_number: promotionDiscountNumber(line),
+    drink_type: toNumber(line.drink_type),
+    have_point: line.have_point === true,
+    no_discount: line.no_discount === true,
+  }))
+}
+
+function buildPromotionPayload() {
+  return {
+    pos_id: posStore.posId,
+    cust_code: custCode.value || 'AR00001',
+    member_code: custCode.value || 'AR00001',
+    pos_default_cust: 'AR00001',
+    doc_date: docDate.value,
+    items: buildPromotionItems(),
+  }
+}
+
+function buildPromotionGuidePayload(items = buildPromotionGuideItems()) {
+  return {
+    pos_id: posStore.posId,
+    cust_code: custCode.value || defaultCustomerCode,
+    member_code: custCode.value || defaultCustomerCode,
+    pos_default_cust: defaultCustomerCode,
+    doc_date: docDate.value,
+    items,
+  }
+}
+
+function clearPromotionGuide() {
+  clearTimeout(promotionGuideTimer)
+  promotionGuideRunId += 1
+  promotionGuideLoading.value = false
+  promotionGuideError.value = ''
+  promotionGuideMap.value = {}
+  promotionGuideDialogVisible.value = false
+  promotionGuideDialogLine.value = null
+}
+
+function schedulePromotionGuideCheck(delay = 300) {
+  clearTimeout(promotionGuideTimer)
+  const items = buildPromotionGuideItems()
+  if (!items.length) {
+    clearPromotionGuide()
+    return
+  }
+  const runId = ++promotionGuideRunId
+  promotionGuideError.value = ''
+  promotionGuideTimer = setTimeout(() => {
+    void runPromotionGuideCheck(runId, items)
+  }, delay)
+}
+
+async function runPromotionGuideCheck(runId = ++promotionGuideRunId, items = buildPromotionGuideItems()) {
+  if (runId !== promotionGuideRunId || !items.length) return
+  promotionGuideLoading.value = true
+  promotionGuideError.value = ''
+  try {
+    const result = await getPromotionItemHints(buildPromotionGuidePayload(items))
+    if (runId !== promotionGuideRunId) return
+    if (!result?.success) throw new Error(result?.message || result?.msg || 'โหลดโปรโมชั่นที่เกี่ยวข้องไม่สำเร็จ')
+    const map = {}
+    for (const row of Array.isArray(result.data) ? result.data : []) {
+      map[promotionGuideKey(row.item_code, row.unit_code)] = row
+    }
+    promotionGuideMap.value = map
+  } catch (error) {
+    if (runId !== promotionGuideRunId) return
+    promotionGuideMap.value = {}
+    promotionGuideError.value = error.message || 'โหลดโปรโมชั่นที่เกี่ยวข้องไม่สำเร็จ'
+  } finally {
+    if (runId === promotionGuideRunId) promotionGuideLoading.value = false
+  }
+}
+
+function openPromotionGuideDialog(line) {
+  promotionGuideDialogLine.value = line
+  promotionGuideDialogVisible.value = true
+}
+
+function promotionCalculatedTime() {
+  return new Date().toLocaleTimeString('th-TH', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+}
+
+function schedulePromotionCalculation(delay = 450) {
+  clearTimeout(promotionTimer)
+  if (!validRows.value.length) {
+    clearPromotionCalculation()
+    return
+  }
+  const runId = ++promotionRunId
+  promotionDirty.value = true
+  promotionError.value = ''
+  promotionTimer = setTimeout(() => {
+    void runPromotionCalculation(runId)
+  }, delay)
+}
+
+function recalculatePromotionNow() {
+  clearTimeout(promotionTimer)
+  if (!validRows.value.length) {
+    clearPromotionCalculation()
+    return
+  }
+  const runId = ++promotionRunId
+  promotionDirty.value = true
+  promotionError.value = ''
+  void runPromotionCalculation(runId)
+}
+
+async function runPromotionCalculation(runId = ++promotionRunId) {
+  if (runId !== promotionRunId) return
+  if (!validRows.value.length) {
+    clearPromotionCalculation()
+    return
+  }
+  if (priceRefreshing.value) {
+    schedulePromotionCalculation(250)
+    return
+  }
+
+  promotionLoading.value = true
+  promotionError.value = ''
+  try {
+    const result = await processPromotion(buildPromotionPayload())
+    if (runId !== promotionRunId) return
+    if (!result?.success) throw new Error(result?.msg || result?.message || 'คำนวณโปรโมชั่นไม่สำเร็จ')
+    promotionResults.value = Array.isArray(result.data) ? result.data : []
+    promotionProductRows.value = Array.isArray(result.promotion_product_rows) ? result.promotion_product_rows : []
+    promotionDiscountRaw.value = toNumber(result.promotion_discount_amount)
+    promotionLastCalculatedAt.value = promotionCalculatedTime()
+    promotionDirty.value = false
+  } catch (error) {
+    if (runId !== promotionRunId) return
+    promotionResults.value = []
+    promotionProductRows.value = []
+    promotionDiscountRaw.value = 0
+    promotionLastCalculatedAt.value = ''
+    promotionDirty.value = false
+    promotionError.value = error.message || 'คำนวณโปรโมชั่นไม่สำเร็จ'
+  } finally {
+    if (runId === promotionRunId) promotionLoading.value = false
+  }
+}
+
+async function addProduct(product, qty = 1, barcode = '') {
+  const line = await makeLine(product, qty, barcode)
+  mergeOrPushLine(line)
+  toast.add({ severity: 'success', summary: 'เพิ่มสินค้าแล้ว', detail: `${line.item_name} x ${qty}`, life: 1400 })
+}
+
+async function searchProducts() {
+  if (documentLocked.value) return
+  const query = productSearch.value.trim()
+  if (!query) return
+  productLoading.value = true
+  errorMsg.value = ''
+  try {
+    productResults.value = await getProductBarcodeSearch({
+      search: query,
+      offset: 0,
+      limit: 50,
+      include_balance: '1',
+      wh_code: posStore.selectedPos?.pos_ic_wht || '',
+      shelf_code: posStore.selectedPos?.pos_ic_shelf || '',
+    })
+    productDialogVisible.value = true
+    if (!productResults.value.length) errorMsg.value = 'ไม่พบสินค้า'
+  } catch (error) {
+    errorMsg.value = error.message || 'ค้นหาสินค้าไม่สำเร็จ'
+  } finally {
+    productLoading.value = false
+  }
+}
+
+async function addProductFromSearch(product) {
+  if (documentLocked.value) return
+  try {
+    await addProduct(product, 1, product.barcode || '')
+    productDialogVisible.value = false
+    productSearch.value = ''
+  } catch (error) {
+    errorMsg.value = error.message || 'เพิ่มสินค้าไม่สำเร็จ'
+  }
+}
+
+async function addProductBasketToSale(items = []) {
+  if (documentLocked.value || !items.length) return
+  productLoading.value = true
+  errorMsg.value = ''
+  try {
+    let addedCount = 0
+    for (const item of items) {
+      const product = item?.product || item
+      const qty = toNumber(item?.qty, 1)
+      if (!product || qty <= 0) continue
+      await addProduct(product, qty, product.barcode || '')
+      addedCount += 1
+    }
+    if (addedCount) {
+      toast.add({ severity: 'success', summary: 'เพิ่มสินค้าจากตะกร้าแล้ว', detail: `${addedCount} รายการ`, life: 1800 })
+    }
+  } catch (error) {
+    errorMsg.value = error.message || 'เพิ่มสินค้าจากตะกร้าไม่สำเร็จ'
+  } finally {
+    productLoading.value = false
+  }
+}
+
+async function addBarcode() {
+  if (documentLocked.value || barcodeAdding.value) return
+  const { barcode, qty } = parseBarcodeInput(barcodeInput.value)
+  if (!barcode) return
+  barcodeAdding.value = true
+  errorMsg.value = ''
+  try {
+    const product = await getProductByBarcodeDetail(barcode)
+    if (!product) throw new Error(`ไม่พบสินค้าจากบาร์โค้ด ${barcode}`)
+    await addProduct(product, qty, barcode)
+    barcodeInput.value = ''
+  } catch (error) {
+    errorMsg.value = error.message || 'เพิ่มสินค้าจากบาร์โค้ดไม่สำเร็จ'
+  } finally {
+    barcodeAdding.value = false
+    await nextTick()
+    barcodeRef.value?.$el?.querySelector?.('input')?.focus?.()
+  }
+}
+
+function removeLine(index) {
+  if (documentLocked.value) return
+  rows.value.splice(index, 1)
+}
+
+function refreshPaymentReviewAfterEdit() {
+  paymentReviewNeeded.value = false
+  paymentReviewTotal.value = paymentEntries.value.length ? totalDue.value : null
+  setCashAmountFromBaht(remainingPayment.value)
+  transferInputAmount.value = remainingPayment.value
+  creditInputAmount.value = remainingPayment.value
+}
+
+function confirmPaymentReview() {
+  refreshPaymentReviewAfterEdit()
+}
+
+async function refreshCouponOptions() {
+  couponOptions.value = await getCouponList({
+    search: couponSearch.value,
+    cust_code: custCode.value || defaultCustomerCode,
+    doc_date: docDate.value,
+    total_amount: totals.value.totalAmount,
+  }).catch(() => [])
+  couponOptions.value = couponOptions.value.map((row) => ({
+    ...row,
+    label: `${row.number || ''} ${row.remark || ''} ${formatCurrency(row.available_amount ?? row.balance_amount)}`.trim(),
+  }))
+}
+
+async function refreshDepositOptions() {
+  depositOptions.value = await getSaleDepositBalanceList({
+    search: depositSearch.value,
+    cust_code: custCode.value || defaultCustomerCode,
+    doc_date: docDate.value,
+  }).catch(() => [])
+  depositOptions.value = depositOptions.value.map((row) => ({
+    ...row,
+    label: `${row.doc_no || ''} ${formatCurrency(row.balance_amount)}${row.currency_code ? ` ${row.currency_code}` : ''}`.trim(),
+  }))
+}
+
+function addCash() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = cashConvertedAmount.value
+  const currency = selectedCashCurrency.value
+  if (amount <= 0 || toNumber(cashExchangeRate.value) <= 0) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'cash',
+    label: currency.value === 'THB' ? 'เงินสด' : `เงินสด ${currency.name}`,
+    amount,
+    details: {
+      currency_code: currency.value,
+      currency_name: currency.name,
+      currency_amount: toNumber(cashCurrencyAmount.value),
+      exchange_rate: toNumber(cashExchangeRate.value),
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addTransfer() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(transferInputAmount.value)
+  if (amount <= 0 || !transferPassBook.value) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'transfer',
+    label: transferPassBook.value.label || transferPassBook.value.book_code || 'โอน',
+    amount,
+    details: {
+      doc_type: 1,
+      trans_number: transferPassBook.value.book_code || transferPassBook.value.pass_book_code || transferPassBook.value.code || '',
+      pass_book_code: transferPassBook.value.book_code || transferPassBook.value.pass_book_code || transferPassBook.value.code || '',
+      bank_code: transferPassBook.value.bank_code || '',
+      bank_branch: transferPassBook.value.bank_branch || '',
+      transfer_date: transferDate.value,
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addCredit() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(creditInputAmount.value)
+  if (amount <= 0 || !creditCardNumber.value) return
+  const chargeRate = creditType.value?.charge_rate_word ?? creditType.value?.charge_rate
+  const charge = toNumber(paymentMasterOptions.value.input_credit_card_charge) === 1
+    ? 0
+    : calcPaymentCharge(amount, chargeRate)
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'credit',
+    label: creditType.value?.label || 'บัตรเครดิต',
+    amount,
+    details: {
+      doc_type: 3,
+      trans_number: creditCardNumber.value,
+      credit_card_type: creditType.value?.code || creditType.value?.credit_card_type || '',
+      card_number: creditCardNumber.value,
+      no_approved: creditApprovalNo.value,
+      charge,
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addCheque() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(chequeAmount.value)
+  if (amount <= 0 || !chequeNumber.value) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'cheque',
+    label: 'เช็ค',
+    amount,
+    details: {
+      doc_type: 2,
+      trans_number: chequeNumber.value,
+      pass_book_code: chequePassBook.value?.code || '',
+      bank_code: chequePassBook.value?.bank_code || '',
+      bank_branch: chequePassBook.value?.bank_branch || '',
+      chq_due_date: chequeDueDate.value,
+      sum_amount: amount,
+      currency_code: chequePassBook.value?.currency_code || '',
+      exchange_rate: 1,
+      sum_amount_2: amount,
+      chq_on_hand: 0,
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addPettyCash() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(pettyCashAmount.value)
+  if (amount <= 0 || !pettyCashAccount.value) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'petty',
+    label: pettyCashAccount.value.label || 'เงินสดย่อย',
+    amount,
+    details: {
+      doc_type: 4,
+      trans_number: pettyCashAccount.value.code || '',
+      description: pettyCashAccount.value.name_1 || '',
+      currency_code: pettyCashAccount.value.currency_code || '',
+      exchange_rate: 1,
+      sum_amount_2: amount,
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addDeposit() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(depositAmount.value)
+  const balanceAmount = toNumber(depositDoc.value?.balance_amount)
+  if (amount <= 0 || !depositDoc.value || amount > balanceAmount) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'deposit',
+    label: depositDoc.value.doc_no || 'เงินล่วงหน้า',
+    amount,
+    details: {
+      doc_type: 5,
+      trans_number: depositDoc.value.doc_no || '',
+      doc_date_ref: depositDoc.value.doc_date || '',
+      sum_amount: toNumber(depositDoc.value.amount),
+      balance_amount: balanceAmount,
+      currency_code: depositDoc.value.currency_code || '',
+      exchange_rate: toNumber(depositDoc.value.exchange_rate, 1),
+      sum_amount_2: toNumber(depositDoc.value.currency_amount),
+      amount_2: toNumber(depositDoc.value.exchange_rate, 1) > 0 ? rnd(amount / toNumber(depositDoc.value.exchange_rate, 1)) : 0,
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addCoupon() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(couponAmount.value)
+  const availableAmount = toNumber(
+    couponSelected.value?.available_amount ?? couponSelected.value?.usable_amount ?? couponSelected.value?.balance_amount,
+  )
+  if (amount <= 0 || !couponSelected.value || amount > availableAmount) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'coupon',
+    label: couponSelected.value.number || 'คูปอง',
+    amount,
+    details: {
+      doc_type: 9,
+      trans_number: couponSelected.value.number || '',
+      balance_amount: availableAmount,
+      coupon_type: couponSelected.value.coupon_type || '0',
+      master_amount: toNumber(couponSelected.value.amount),
+      single_use: couponSelected.value.single_use || '0',
+      date_expire: couponSelected.value.date_expire || '',
+      remark: couponSelected.value.remark || '',
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addIncome() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(incomeAmount.value)
+  if (amount <= 0 || !incomeType.value) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'income',
+    label: incomeType.value.label || 'รายได้อื่น',
+    amount,
+    details: {
+      doc_type: 12,
+      trans_number: incomeType.value.code || '',
+      description: incomeType.value.name_1 || '',
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addExpense() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(expenseAmount.value)
+  if (amount <= 0 || !expenseType.value) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'expense',
+    label: expenseType.value.label || 'ค่าใช้จ่ายอื่น',
+    amount,
+    details: {
+      doc_type: 11,
+      trans_number: expenseType.value.code || '',
+      description: expenseType.value.name_1 || '',
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addOtherCurrency() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(otherCurrencyConvertedAmount.value)
+  if (amount <= 0 || !otherCurrency.value || otherCurrencyRate.value <= 0) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'currency',
+    label: otherCurrency.value.label || 'สกุลเงินอื่นๆ',
+    amount,
+    details: {
+      doc_type: 19,
+      trans_number: otherCurrency.value.code || '',
+      currency_code: otherCurrency.value.code || '',
+      description: otherCurrency.value.name_1 || '',
+      amount: toNumber(otherCurrencyAmount.value),
+      exchange_rate: otherCurrencyRate.value,
+      sum_amount: amount,
+      charge: toNumber(otherCurrencyCharge.value),
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function addWallet() {
+  if (documentLocked.value || isCreditSale.value) return
+  const amount = toNumber(walletAmount.value)
+  if (amount <= 0 || !walletNumber.value) return
+  paymentEntries.value.push({
+    id: makeLineId(),
+    type: 'wallet',
+    label: walletType.value?.label || 'Wallet',
+    amount,
+    details: {
+      doc_type: 21,
+      trans_number: walletNumber.value,
+      credit_card_type: walletType.value?.code || '',
+      description: walletType.value?.name_1 || '',
+      no_approved: walletApprovedNo.value,
+      ref1: walletRef1.value,
+      ref2: walletRef2.value,
+    },
+  })
+  refreshPaymentReviewAfterEdit()
+}
+
+function removePayment(id) {
+  if (documentLocked.value) return
+  paymentEntries.value = paymentEntries.value.filter((entry) => entry.id !== id)
+  refreshPaymentReviewAfterEdit()
+}
+
+function buildStockValidationRows() {
+  return validRows.value.map((line) => ({
+    item_code: line.item_code,
+    item_name: line.item_name,
+    unit_code: line.unit_code,
+    qty: toNumber(line.qty),
+    stand_value: toNumber(line.stand_value, 1),
+    divide_value: toNumber(line.divide_value, 1),
+    ratio: unitRatio(line),
+    item_type: line.item_type,
+    wh_code: line.wh_code || posStore.selectedPos?.pos_ic_wht || '',
+    shelf_code: line.shelf_code || posStore.selectedPos?.pos_ic_shelf || '',
+  }))
+}
+
+async function validateStockBeforeSave(stockRows = buildStockValidationRows()) {
+  const groups = new Map()
+  for (const line of stockRows) {
+    // service (item_type=1) และ สินค้าชุด (item_type=3) ไม่เช็คสต๊อกที่ frontend
+    // — backend คำนวณ component stock ของ set ให้แล้วใน /getProductList
+    if (isServiceItem(line) || isSetItem(line)) continue
+    const key = `${line.item_code}|${line.wh_code || ''}|${line.shelf_code || ''}`
+    const group = groups.get(key) || { line, requestedBase: 0 }
+    group.requestedBase += toNumber(line.qty) * unitRatio(line)
+    groups.set(key, group)
+  }
+  for (const { line, requestedBase } of groups.values()) {
+    const ratio = unitRatio(line)
+    const availableBase = await getInventoryBalance(line.item_code, line.wh_code || '', line.shelf_code || '')
+    if (requestedBase > availableBase) {
+      const availableQty = Math.max(0, Math.floor(availableBase / ratio))
+      throw new Error(`${line.item_name} คงเหลือ ${availableQty} ${line.unit_code}`)
+    }
+  }
+}
+
+function buildSaveSnapshot() {
+  return {
+    stockRows: buildStockValidationRows(),
+    body: buildSaveBody(),
+  }
+}
+
+function buildSaveBody() {
+  const pos = posStore.selectedPos || {}
+  const activePayments = isCreditSale.value ? [] : paymentEntries.value
+  const rate = toNumber(documentExchangeRate.value, 1)
+  const currencyDivider = rate > 0 ? rate : 1
+  const cashEntries = activePayments.filter((entry) => entry.type === 'cash')
+  const transfers = activePayments.filter((entry) => entry.type === 'transfer')
+  const credits = activePayments.filter((entry) => entry.type === 'credit')
+  const paymentDetail = activePayments
+    .filter((entry) => entry.type !== 'cash')
+    .map((entry) => ({
+      type: entry.type,
+      doc_type: entry.details?.doc_type,
+      pay_amount: entry.amount,
+      amount: entry.details?.amount ?? entry.amount,
+      sum_amount: entry.details?.sum_amount ?? (entry.type === 'credit' ? entry.amount + toNumber(entry.details?.charge) : entry.amount),
+      charge: entry.details?.charge || 0,
+      trans_number: entry.details?.trans_number || entry.details?.pass_book_code || entry.details?.card_number || '',
+      pass_book_code: entry.details?.pass_book_code || '',
+      bank_code: entry.details?.bank_code || '',
+      bank_branch: entry.details?.bank_branch || '',
+      credit_card_type: entry.details?.credit_card_type || '',
+      no_approved: entry.details?.no_approved || '',
+      ref1: entry.details?.ref1 || '',
+      ref2: entry.details?.ref2 || '',
+      doc_date_ref: entry.details?.doc_date_ref || '',
+      chq_due_date: entry.details?.chq_due_date || entry.details?.transfer_date || '',
+      balance_amount: entry.details?.balance_amount || 0,
+      description: entry.details?.description || '',
+      remark: entry.details?.remark || '',
+      currency_code: entry.details?.currency_code || '',
+      exchange_rate: entry.details?.exchange_rate || 1,
+      sum_amount_2: entry.details?.sum_amount_2 || 0,
+      amount_2: entry.details?.amount_2 || 0,
+      charge_2: entry.details?.charge_2 || 0,
+      exchange_rate_old: entry.details?.exchange_rate_old || 0,
+      lost_profit_exchange_amount: entry.details?.lost_profit_exchange_amount || 0,
+      chq_on_hand: entry.details?.chq_on_hand || 0,
+    }))
+  const paymentTypeAmount = (type) => activePayments
+    .filter((entry) => entry.type === type)
+    .reduce((sum, entry) => sum + toNumber(entry.amount), 0)
+  return {
+    pos_id: posStore.posId,
+    doc_date: docDate.value,
+    doc_time: localTimeHHMM(),
+    tax_doc_no: taxDocNo.value,
+    tax_doc_date: taxDocDate.value,
+    creator_code: 'bizsuit',
+    doc_format_code: docFormatCode.value,
+    form_code: selectedDocFormat.value?.form_code || '',
+    branch_code: pos.branch_code || '',
+    cust_code: custCode.value || 'AR00001',
+    emp_code: saleCode.value,
+    shelf_code: pos.pos_ic_shelf || '',
+    remark: remark.value,
+    remark_2: remark2.value,
+    remark_3: remark3.value,
+    remark_4: remark4.value,
+    remark_5: remark5.value,
+    send_type: sendType.value,
+    send_day: 0,
+    send_date: sendDate.value,
+    delivery_date: deliveryDate.value,
+    credit_day: toNumber(creditDay.value),
+    due_date: dueDate.value,
+    credit_date: dueDate.value,
+    transport_code: transportType.value?.code || '',
+    currency_code: documentCurrency.value?.code || '',
+    exchange_rate: rate,
+    inquiry_type: inquiryType.value,
+    vat_type: vatType.value,
+    vat_rate: toNumber(vatRate.value, 7),
+    discount_type: posStore.erpOption?.discout_type ?? 0,
+    discount_word: discountWord.value,
+    promotion_discount_amount: promotionDiscountRaw.value,
+    promotion_extra_discount_amount: promotionDiscountAmount.value,
+    total_value: totals.value.totalValue,
+    total_discount: totals.value.totalDiscount,
+    total_before_vat: totals.value.beforeVat,
+    total_vat_value: totals.value.vatValue,
+    total_after_vat: totals.value.afterVat,
+    total_except_vat: totals.value.totalExceptVat,
+    total_amount: totals.value.totalAmount,
+    total_value_2: rnd(totals.value.totalValue / currencyDivider),
+    total_discount_2: rnd(totals.value.totalDiscount / currencyDivider),
+    total_amount_2: documentCurrencyAmount.value,
+    discount_word_2: discountWord.value,
+    total_net_amount: rnd(totals.value.totalAmount + totalExpenseOtherEntries.value + totalCreditChargeEntries.value),
+    cash_amount: cashEntries.reduce((sum, entry) => sum + toNumber(entry.amount), 0),
+    rounded_amount: toNumber(roundedAmount.value),
+    total_income_amount: toNumber(roundedAmount.value),
+    tranfer_amount: transfers.reduce((sum, entry) => sum + toNumber(entry.amount), 0),
+    chq_amount: paymentTypeAmount('cheque'),
+    card_amount: credits.reduce((sum, entry) => sum + toNumber(entry.amount), 0),
+    total_credit_charge: credits.reduce((sum, entry) => sum + toNumber(entry.details?.charge), 0),
+    petty_cash_amount: paymentTypeAmount('petty'),
+    deposit_amount: paymentTypeAmount('deposit'),
+    coupon_amount: paymentTypeAmount('coupon'),
+    total_income_other: paymentTypeAmount('income'),
+    total_expense_other: paymentTypeAmount('expense'),
+    total_other_currency: paymentTypeAmount('currency'),
+    total_other_currency_charge: activePayments
+      .filter((entry) => entry.type === 'currency')
+      .reduce((sum, entry) => sum + toNumber(entry.details?.charge), 0),
+    tiger_pending: false,
+    tiger_order_id: '',
+    tiger_ref1: '',
+    tiger_ref2: '',
+    tiger_amount: 0,
+    wallet_amount: paymentTypeAmount('wallet'),
+    vat_sale: {
+      vat_number: taxDocNo.value,
+      tax_doc_no: taxDocNo.value,
+      tax_doc_date: taxDocDate.value,
+      description: vatSaleDescription.value,
+      tax_no: vatSaleTaxNo.value,
+      branch_code: vatSaleBranchCode.value,
+    },
+    shipment: {
+      ...shipment.value,
+      transport_code: shipment.value.transport_code || transportType.value?.code || '',
+    },
+    withholding_detail: whtRows.value.map((row, index) => ({
+      line_number: index,
+      income_type: row.income_type,
+      amount: toNumber(row.amount),
+      tax_rate: toNumber(row.tax_rate),
+      tax_value: toNumber(row.tax_value),
+      sum_amount: toNumber(row.amount),
+    })),
+    gl_detail: manualGlRows.value.map((row, index) => ({
+      line_number: index,
+      account_code: row.account_code,
+      account_name: row.account_name,
+      debit: toNumber(row.debit),
+      credit: toNumber(row.credit),
+    })),
+    promotion_detail: promotionProductRows.value,
+    payment_detail: paymentDetail,
+    items: validRows.value.map((line) => ({
+      item_code: line.item_code,
+      item_name: line.item_name,
+      unit_code: line.unit_code,
+      qty: toNumber(line.qty),
+      price: toNumber(line.price),
+      sum_amount: lineSumAmount(line),
+      discount: line.discount || '',
+      discount_amount: lineDiscountAmount(line),
+      tax_type: toNumber(line.tax_type),
+      vat_type: vatType.value,
+      vat_rate: toNumber(vatRate.value, 7),
+      wh_code: line.wh_code || pos.pos_ic_wht || '',
+      shelf_code: line.shelf_code || pos.pos_ic_shelf || '',
+      stand_value: toNumber(line.stand_value, 1),
+      divide_value: toNumber(line.divide_value, 1),
+      ratio: unitRatio(line),
+      item_type: line.item_type,
+      barcode: line.barcode || '',
+      price_type: toNumber(line.price_type ?? 1, 1),
+      price_default: toNumber(line.price_default ?? line.price),
+      price_info: line.price_info || '',
+      discount_number: promotionDiscountNumber(line),
+      drink_type: toNumber(line.drink_type),
+      have_point: line.have_point === true,
+      no_discount: line.no_discount === true,
+      remark: line.remark || '',
+      // สินค้าชุด: ส่ง children เพื่อให้ backend แตกเป็น ic_trans_detail child rows
+      // (set_ref_line, item_code_main, set_ref_price, set_ref_qty, price_set_ratio
+      //  คำนวณที่ backend ตามกฎใน MarketPlaceWebServiceExpress)
+      sub_item: isSetItem(line) ? (line.sub_item || []) : [],
+    })),
+  }
+}
+
+function buildCreditValidationDetails(result) {
+  const details = Array.isArray(result?.details) ? result.details.filter(Boolean) : []
+  if (result?.request_ref_no) details.unshift(`เลขที่คำขออนุมัติ ${result.request_ref_no}`)
+  return details
+}
+
+function openCreditApproveDialog(snapshot, confirmations, result) {
+  creditApproveSnapshot.value = snapshot
+  creditApproveConfirmations.value = [...confirmations]
+  creditApproveUser.value = ''
+  creditApprovePassword.value = ''
+  creditApproveMessage.value = result?.message || result?.msg || 'ต้องอนุมัติวงเงินเครดิตก่อนบันทึก'
+  creditApproveDetails.value = buildCreditValidationDetails(result)
+  creditApproveDialogVisible.value = true
+}
+
+async function submitCreditApprove() {
+  const snapshot = creditApproveSnapshot.value
+  if (!snapshot) return
+  if (!creditApproveUser.value || !creditApprovePassword.value) {
+    creditApproveMessage.value = 'กรุณาระบุผู้อนุมัติและรหัสผ่าน'
+    return
+  }
+  saving.value = true
+  try {
+    const approve = {
+      user_code: creditApproveUser.value,
+      password: creditApprovePassword.value,
+    }
+    creditApproveDialogVisible.value = false
+    await persistSaveSnapshot(snapshot, creditApproveConfirmations.value, approve)
+  } catch (error) {
+    openSaveDialog({
+      type: 'error',
+      title: 'บันทึกไม่สำเร็จ',
+      message: error.message || 'บันทึกไม่สำเร็จ',
+    })
+  } finally {
+    creditApprovePassword.value = ''
+    saving.value = false
+  }
+}
+
+async function persistSaveSnapshot(snapshot, confirmations = [], creditApprove = null) {
+  const result = await saveTransAndPro({
+    ...snapshot.body,
+    credit_confirmations: confirmations,
+    ...(creditApprove ? { credit_approve: creditApprove } : {}),
+  })
+  if (result?.success) {
+    successDocNo.value = result.doc_no
+    openSaveDialog({
+      type: 'success',
+      title: 'บันทึกเอกสารสำเร็จ',
+      message: `เลขที่เอกสาร ${result.doc_no}`,
+    })
+    return true
+  }
+
+  if (result?.require_approve_password) {
+    openCreditApproveDialog(snapshot, confirmations, result)
+    return false
+  }
+
+  if (result?.require_confirm) {
+    openSaveDialog({
+      type: 'warn',
+      title: result.title || 'ต้องยืนยันก่อนบันทึก',
+      message: result.message || result.msg || 'ตรวจพบเงื่อนไขที่ต้องยืนยัน ต้องการดำเนินการต่อหรือไม่',
+      details: buildCreditValidationDetails(result),
+      primaryLabel: 'ดำเนินการต่อ',
+      primarySeverity: 'warning',
+      primaryAction: async () => {
+        saving.value = true
+        try {
+          await persistSaveSnapshot(snapshot, [...confirmations, result.require_confirm])
+        } catch (error) {
+          openSaveDialog({
+            type: 'error',
+            title: 'บันทึกไม่สำเร็จ',
+            message: error.message || 'บันทึกไม่สำเร็จ',
+          })
+        } finally {
+          saving.value = false
+        }
+      },
+    })
+    return false
+  }
+
+  openSaveDialog({
+    type: result?.level === 'info' ? 'info' : 'error',
+    title: result?.title || 'บันทึกไม่สำเร็จ',
+    message: result?.message || result?.msg || 'บันทึกไม่สำเร็จ',
+    details: buildCreditValidationDetails(result),
+  })
+  return false
+}
+
+async function saveDocument() {
+  if (saving.value) return
+  errorMsg.value = ''
+  if (validationMessages.value.length) {
+    openSaveDialog({
+      type: 'warn',
+      title: 'ยังบันทึกไม่ได้',
+      message: 'กรุณาตรวจสอบข้อมูลเอกสารก่อนบันทึก',
+      details: validationMessages.value,
+    })
+    return
+  }
+  saving.value = true
+  try {
+    const snapshot = buildSaveSnapshot()
+    await validateStockBeforeSave(snapshot.stockRows)
+    await persistSaveSnapshot(snapshot)
+  } catch (error) {
+    openSaveDialog({
+      type: 'error',
+      title: 'บันทึกไม่สำเร็จ',
+      message: error.message || 'บันทึกไม่สำเร็จ',
+    })
+  } finally {
+    saving.value = false
+  }
+}
+
+function newDocument() {
+  rows.value = []
+  paymentEntries.value = []
+  paymentReviewNeeded.value = false
+  paymentReviewTotal.value = null
+  errorMsg.value = ''
+  discountWord.value = ''
+  remark.value = ''
+  remark2.value = ''
+  remark3.value = ''
+  remark4.value = ''
+  remark5.value = ''
+  docDate.value = todayISO()
+  creditDay.value = toNumber(customerCredit.value?.credit_day)
+  dueDate.value = addDaysISO(docDate.value, creditDay.value)
+  sendDate.value = docDate.value
+  deliveryDate.value = docDate.value
+  sendType.value = 0
+  transportType.value = null
+  taxDocNo.value = ''
+  taxDocDate.value = docDate.value
+  vatSaleDescription.value = ''
+  vatSaleTaxNo.value = ''
+  vatSaleBranchCode.value = ''
+  resetShipment()
+  whtRows.value = []
+  manualGlRows.value = []
+  roundedAmount.value = 0
+  successDocNo.value = ''
+  saveDialogVisible.value = false
+  saveDialogPrimaryAction.value = null
+  clearPromotionCalculation()
+  clearPromotionGuide()
+  setCashAmountFromBaht(totals.value.totalAmount)
+}
+
+async function openPrintDialog() {
+  if (!successDocNo.value) return
+  printDialogVisible.value = true
+  printLoading.value = true
+  printError.value = ''
+  printForms.value = []
+  selectedPrintForms.value = []
+  try {
+    const result = await getSalePrintForms(successDocNo.value)
+    const forms = result?.forms || []
+    printForms.value = forms
+    selectedPrintForms.value = forms.filter((form) => form.available && form.is_default).map((form) => form.formcode)
+    if (!selectedPrintForms.value.length) {
+      selectedPrintForms.value = forms.filter((form) => form.available).slice(0, 1).map((form) => form.formcode)
+    }
+    if (!forms.length) printError.value = 'เอกสารนี้ยังไม่ได้กำหนด form_code สำหรับพิมพ์'
+    else if (!selectedPrintForms.value.length) printError.value = 'ไม่พบฟอร์มที่พร้อมใช้งาน'
+  } catch (error) {
+    printError.value = error.message || 'โหลดฟอร์มพิมพ์ไม่สำเร็จ'
+  } finally {
+    printLoading.value = false
+  }
+}
+
+function confirmPrintForms() {
+  if (!successDocNo.value || !selectedPrintForms.value.length) return
+  window.open(getSalePrintUrl(successDocNo.value, selectedPrintForms.value, authStore.employee?.user_code || ''), '_blank', 'noopener')
+  printDialogVisible.value = false
+}
+</script>
+
+<template>
+  <div class="sell-view biz-page">
+    <div class="biz-page-header">
+      <div class="biz-page-title-wrap">
+        <i class="pi pi-shopping-cart biz-page-icon" />
+        <div>
+          <h1 class="biz-page-title">ขายสินค้า</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <Button label="เอกสารใหม่" icon="pi pi-plus" severity="secondary" outlined :disabled="saving" @click="newDocument" />
+        <Button
+          :label="successDocNo ? `บันทึกแล้ว ${successDocNo}` : `บันทึก ${formatCurrency(totals.totalAmount)}`"
+          icon="pi pi-save"
+          :loading="saving"
+          :disabled="!canSave || !!successDocNo"
+          @click="saveDocument"
+        />
+      </div>
+    </div>
+
+    <Message v-if="errorMsg" severity="warn" :closable="false">{{ errorMsg }}</Message>
+
+    <div class="sell-grid">
+      <main class="document-workspace">
+        <section class="biz-panel document-panel">
+          <div class="panel-title">
+            <i class="pi pi-file-edit" />
+            <strong>หัวเอกสาร</strong>
+          </div>
+          <div class="doc-grid">
+            <label class="field">
+              <span>รหัสเอกสาร</span>
+              <Select v-model="docFormatCode" :options="docFormatOptions" option-label="label" option-value="code" placeholder="เลือกเอกสาร" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>ประเภทขาย</span>
+              <Select v-model="inquiryType" :options="inquiryTypeOptions" option-label="label" option-value="value" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>ประเภทภาษี</span>
+              <Select v-model="vatType" :options="vatTypeOptions" option-label="label" option-value="value" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>VAT %</span>
+              <InputNumber v-model="vatRate" input-class="text-right" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>วันที่เอกสาร</span>
+              <InputText v-model="docDate" type="date" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>เครดิต (วัน)</span>
+              <InputNumber v-model="creditDay" input-class="text-right" :min="0" :max-fraction-digits="0" :disabled="documentLocked || !isCreditSale" />
+            </label>
+            <label class="field">
+              <span>วันครบกำหนด</span>
+              <InputText v-model="dueDate" type="date" :disabled="documentLocked || !isCreditSale" />
+            </label>
+            <label class="field">
+              <span>ประเภทการส่ง</span>
+              <Select v-model="sendType" :options="sendTypeOptions" option-label="label" option-value="value" :disabled="documentLocked" />
+            </label>
+            <label class="field entity-field">
+              <span>ลูกค้า</span>
+              <div class="entity-picker">
+                <InputText :model-value="customerDisplay" readonly :disabled="documentLocked" @click="openCustomerDialog" />
+                <Button icon="pi pi-search" outlined :disabled="documentLocked" aria-label="ค้นหาลูกค้า" @click="openCustomerDialog" />
+                <Button icon="pi pi-times" text severity="secondary" :disabled="documentLocked" aria-label="ใช้ลูกค้าทั่วไป" @click="selectWalkIn" />
+              </div>
+            </label>
+            <label class="field entity-field">
+              <span>พนักงานขาย</span>
+              <div class="entity-picker">
+                <InputText :model-value="employeeDisplay || 'ยังไม่ได้เลือกพนักงานขาย'" readonly :disabled="documentLocked" @click="openEmployeeDialog" />
+                <Button icon="pi pi-search" outlined :disabled="documentLocked" aria-label="ค้นหาพนักงานขาย" @click="openEmployeeDialog" />
+                <Button icon="pi pi-times" text severity="secondary" :disabled="documentLocked" aria-label="ใช้พนักงานเริ่มต้น" @click="resetEmployeeToDefault" />
+              </div>
+            </label>
+            <label class="field">
+              <span>วันที่ส่ง</span>
+              <InputText v-model="sendDate" type="date" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>วันที่รับ/ส่งสินค้า</span>
+              <InputText v-model="deliveryDate" type="date" :disabled="documentLocked" />
+            </label>
+            <label class="field entity-field">
+              <span>ขนส่ง</span>
+              <Select v-model="transportType" :options="transportTypes" option-label="label" placeholder="เลือกประเภทขนส่ง" :disabled="documentLocked" show-clear filter />
+            </label>
+            <template v-if="showDocumentCurrency">
+              <label class="field">
+                <span>รหัสสกุลเงิน</span>
+                <Select v-model="documentCurrency" :options="currencyTypes" option-label="label" placeholder="สกุลเงิน" :disabled="documentLocked" filter />
+              </label>
+              <label class="field">
+                <span>อัตราแลกเปลี่ยน</span>
+                <InputNumber v-model="documentExchangeRate" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="6" :disabled="documentLocked" />
+              </label>
+              <label class="field">
+                <span>มูลค่าสุทธิ (สกุลเงิน)</span>
+                <InputNumber :model-value="documentCurrencyAmount" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" disabled />
+              </label>
+              <label class="field">
+                <span>สกุลเงิน</span>
+                <InputText :model-value="selectedDocumentCurrency?.code || '-'" disabled />
+              </label>
+            </template>
+            <label class="field wide">
+              <span>หมายเหตุ</span>
+              <Textarea v-model.trim="remark" rows="2" auto-resize :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>หมายเหตุ 2</span>
+              <InputText v-model.trim="remark2" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>หมายเหตุ 3</span>
+              <InputText v-model.trim="remark3" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>หมายเหตุ 4</span>
+              <InputText v-model.trim="remark4" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>หมายเหตุ 5</span>
+              <InputText v-model.trim="remark5" :disabled="documentLocked" />
+            </label>
+          </div>
+          <Message v-if="isCreditSale" class="credit-check-message" :severity="customerCreditExceeded || customerCreditClosed ? 'warn' : 'info'" :closable="false">
+            <span v-if="customerCreditLoading">กำลังตรวจสอบเครดิตลูกค้า...</span>
+            <span v-else-if="customerCreditError">{{ customerCreditError }}</span>
+            <span v-else>
+              เครดิตลูกค้า {{ formatCurrency(customerCreditBalance) }} / วงเงิน {{ customerCreditLimit ? formatCurrency(customerCreditLimit) : '-' }}
+              <template v-if="customerCreditExceeded"> · ยอดหลังขายจะเกินวงเงิน {{ formatCurrency(customerCreditAfterSale) }}</template>
+              <template v-if="customerCreditClosed"> · ลูกค้าถูกปิดสถานะเครดิต</template>
+            </span>
+          </Message>
+        </section>
+
+        <section class="biz-panel additional-panel">
+          <div class="panel-title">
+            <i class="pi pi-folder-open" />
+            <strong>รายละเอียดเพิ่มเติม</strong>
+          </div>
+          <div class="extra-doc-grid">
+            <div class="extra-doc-block">
+              <h3>ภาษีมูลค่าเพิ่ม</h3>
+              <div class="extra-grid-2">
+                <label class="field">
+                  <span>เลขที่ใบกำกับภาษี</span>
+                  <InputText v-model.trim="taxDocNo" :disabled="documentLocked" placeholder="ว่าง = ใช้เลขเอกสาร" />
+                </label>
+                <label class="field">
+                  <span>วันที่ใบกำกับภาษี</span>
+                  <InputText v-model="taxDocDate" type="date" :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>เลขประจำตัวผู้เสียภาษี</span>
+                  <InputText v-model.trim="vatSaleTaxNo" :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>สาขาภาษี</span>
+                  <InputText v-model.trim="vatSaleBranchCode" :disabled="documentLocked" />
+                </label>
+                <label class="field wide-local">
+                  <span>รายละเอียด</span>
+                  <InputText v-model.trim="vatSaleDescription" :disabled="documentLocked" />
+                </label>
+              </div>
+            </div>
+
+            <div class="extra-doc-block">
+              <h3>การจัดส่ง</h3>
+              <div class="extra-grid-2">
+                <label class="field wide-local">
+                  <span>ค้นหาที่อยู่จัดส่ง</span>
+                  <Select :model-value="selectedShippingLabel" :options="shippingLabels" option-label="label" placeholder="เลือกที่อยู่จัดส่ง" :disabled="documentLocked" show-clear filter @update:model-value="applyShippingLabel" />
+                </label>
+                <label class="field">
+                  <span>ชื่อผู้รับ/ขนส่ง</span>
+                  <InputText v-model.trim="shipment.transport_name" :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>โทรศัพท์</span>
+                  <InputText v-model.trim="shipment.transport_telephone" :disabled="documentLocked" />
+                </label>
+                <label class="field wide-local">
+                  <span>ที่อยู่</span>
+                  <Textarea v-model.trim="shipment.transport_address" rows="2" auto-resize :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>จังหวัด</span>
+                  <InputText v-model.trim="shipment.transport_province" :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>อำเภอ</span>
+                  <InputText v-model.trim="shipment.transport_amper" :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>ตำบล</span>
+                  <InputText v-model.trim="shipment.transport_tambon" :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>รหัสไปรษณีย์</span>
+                  <InputText v-model.trim="shipment.zipcode" :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>Ship Code</span>
+                  <InputText v-model.trim="shipment.ship_code" :disabled="documentLocked" />
+                </label>
+                <label class="field">
+                  <span>ปลายทาง</span>
+                  <InputText v-model.trim="shipment.destination" :disabled="documentLocked" />
+                </label>
+              </div>
+            </div>
+
+            <div class="extra-doc-block">
+              <h3>ภาษีหัก ณ ที่จ่าย</h3>
+              <div class="extra-inline-form">
+                <InputText v-model.trim="whtIncomeType" placeholder="ประเภท/รหัส" :disabled="documentLocked" />
+                <InputNumber v-model="whtAmount" input-class="text-right" placeholder="ยอดฐาน" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+                <InputNumber v-model="whtRate" input-class="text-right" placeholder="%" :min="0" :max-fraction-digits="2" :disabled="documentLocked" />
+                <Button icon="pi pi-plus" outlined :disabled="documentLocked || whtAmount <= 0" @click="addWhtRow" />
+              </div>
+              <div v-if="whtRows.length" class="mini-table">
+                <div v-for="row in whtRows" :key="row.id" class="mini-row">
+                  <span>{{ row.income_type || '-' }}</span>
+                  <span>{{ formatCurrency(row.amount) }}</span>
+                  <span>{{ formatQty(row.tax_rate) }}%</span>
+                  <strong>{{ formatCurrency(row.tax_value) }}</strong>
+                  <Button icon="pi pi-trash" text rounded severity="danger" :disabled="documentLocked" @click="removeWhtRow(row.id)" />
+                </div>
+                <div class="mini-row total">
+                  <span>รวม</span>
+                  <span>{{ formatCurrency(whtTotalAmount) }}</span>
+                  <span></span>
+                  <strong>{{ formatCurrency(whtTotalTax) }}</strong>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="extra-doc-block">
+              <h3>GL</h3>
+              <div class="extra-inline-form gl-form">
+                <Select v-model="manualGlAccount" :options="glAccounts" option-label="label" placeholder="บัญชี" :disabled="documentLocked" filter />
+                <InputNumber v-model="manualGlDebit" input-class="text-right" placeholder="เดบิต" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+                <InputNumber v-model="manualGlCredit" input-class="text-right" placeholder="เครดิต" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+                <Button icon="pi pi-plus" outlined :disabled="documentLocked || !manualGlAccount || (manualGlDebit <= 0 && manualGlCredit <= 0)" @click="addManualGlRow" />
+              </div>
+              <div v-if="manualGlRows.length" class="mini-table">
+                <div v-for="row in manualGlRows" :key="row.id" class="mini-row gl-row">
+                  <span>{{ row.account_code }} {{ row.account_name }}</span>
+                  <span>{{ formatCurrency(row.debit) }}</span>
+                  <span>{{ formatCurrency(row.credit) }}</span>
+                  <Button icon="pi pi-trash" text rounded severity="danger" :disabled="documentLocked" @click="removeManualGlRow(row.id)" />
+                </div>
+                <div class="mini-row total gl-row" :class="{ warning: !manualGlBalanced }">
+                  <span>รวม</span>
+                  <strong>{{ formatCurrency(manualGlDebitTotal) }}</strong>
+                  <strong>{{ formatCurrency(manualGlCreditTotal) }}</strong>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="biz-panel product-panel">
+          <div class="panel-title">
+            <i class="pi pi-box" />
+            <strong>เพิ่มสินค้า</strong>
+          </div>
+          <div class="product-tools">
+            <div class="tool-input">
+              <InputText v-model.trim="productSearch" data-testid="sale-product-search" placeholder="ค้นหาสินค้า / รหัส / ชื่อ" :disabled="documentLocked" @keyup.enter="searchProducts" />
+              <Button icon="pi pi-search" :loading="productLoading" outlined :disabled="documentLocked" aria-label="ค้นหาสินค้า" @click="searchProducts" />
+            </div>
+            <div class="tool-input">
+              <InputText ref="barcodeRef" v-model.trim="barcodeInput" data-testid="sale-barcode-input" placeholder="[จำนวน*]บาร์โค้ด เช่น 3*885..." :disabled="documentLocked || barcodeAdding" @keyup.enter="addBarcode" />
+              <Button icon="pi pi-barcode" :loading="barcodeAdding" outlined :disabled="documentLocked" aria-label="เพิ่มด้วยบาร์โค้ด" @click="addBarcode" />
+            </div>
+            <div class="product-action-buttons">
+              <Button icon="pi pi-shopping-cart" label="ตะกร้าสินค้า" severity="success" :disabled="documentLocked" @click="productBasketVisible = true" />
+            </div>
+          </div>
+        </section>
+
+        <section class="biz-panel lines-panel">
+          <div class="panel-title lines-title">
+            <span><i class="pi pi-list" /> <strong>รายการสินค้า</strong></span>
+            <span>{{ validRows.length }} รายการ</span>
+          </div>
+          <div class="lines-table-wrap">
+            <table class="lines-table">
+              <colgroup>
+                <col class="line-col-index">
+                <col class="line-col-item">
+                <col class="line-col-code">
+                <col class="line-col-unit">
+                <col class="line-col-location">
+                <col class="line-col-qty">
+                <col class="line-col-price">
+                <col class="line-col-discount">
+                <col class="line-col-total">
+                <col class="line-col-note">
+                <col class="line-col-action">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="num">#</th>
+                  <th>สินค้า</th>
+                  <th>รหัส</th>
+                  <th>หน่วย</th>
+                  <th>คลัง/ที่เก็บ</th>
+                  <th class="num">จำนวน</th>
+                  <th class="num">ราคา</th>
+                  <th class="num">ส่วนลด</th>
+                  <th class="num">รวม</th>
+                  <th>หมายเหตุ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(line, index) in rows" :key="line.id" :class="{ 'row-warning': line.price_error }">
+                  <td class="line-index num">{{ index + 1 }}</td>
+                  <td class="item-name">
+                    <div class="line-name-row">
+                      <strong>{{ line.item_name }}</strong>
+                      <Button
+                        v-if="lineHasPromotionGuide(line)"
+                        icon="pi pi-tag"
+                        class="line-pro-button"
+                        size="small"
+                        severity="danger"
+                        
+                        :disabled="promotionGuideLoading"
+                        v-tooltip.top="'โปรแนะนำ'"
+                        @click="openPromotionGuideDialog(line)"
+                      />
+                    </div>
+                    <small v-if="line.price_loading">กำลังดึงราคา...</small>
+                    <small v-else-if="line.price_error" class="line-error">{{ line.price_error }}</small>
+                  </td>
+                  <td>{{ line.item_code }}</td>
+                  <td>{{ line.unit_code }}</td>
+                  <td class="line-location-cell">
+                    <div class="line-location-selects">
+                      <Select
+                        :model-value="line.wh_code"
+                        :options="warehouseSelectOptions"
+                        option-label="label"
+                        option-value="code"
+                        placeholder="คลัง"
+                        :disabled="documentLocked"
+                        @update:model-value="value => setLineWarehouse(line, value)"
+                      />
+                      <Select
+                        :model-value="line.shelf_code"
+                        :options="shelfSelectOptions(line.wh_code)"
+                        option-label="label"
+                        option-value="code"
+                        placeholder="ที่เก็บ"
+                        :disabled="documentLocked || !line.wh_code"
+                        @update:model-value="value => setLineShelf(line, value)"
+                      />
+                    </div>
+                  </td>
+                  <td class="qty-cell">
+                    <div class="line-qty-stepper">
+                      <Button icon="pi pi-minus" text rounded severity="secondary" :disabled="documentLocked || toNumber(line.qty) <= 0" aria-label="ลดจำนวน" @click="adjustLineQty(line, -1)" />
+                      <InputNumber
+                        :model-value="line.qty"
+                        input-class="line-qty-input text-right"
+                        :min="0"
+                        :min-fraction-digits="0"
+                        :max-fraction-digits="2"
+                        :disabled="documentLocked"
+                        @update:model-value="value => setLineQty(line, value)"
+                      />
+                      <Button icon="pi pi-plus" text rounded severity="secondary" :disabled="documentLocked" aria-label="เพิ่มจำนวน" @click="adjustLineQty(line, 1)" />
+                    </div>
+                  </td>
+                  <td class="price-cell">
+                    <button type="button" class="line-price-button" :disabled="documentLocked || line.price_loading" @click="openPriceEditor(line)">
+                      <span>{{ formatCurrency(line.price) }}</span>
+                      <i class="pi pi-pencil" />
+                    </button>
+                  </td>
+                  <td><InputText v-model.trim="line.discount" class="cell-input line-discount-input text-right" placeholder="0 หรือ %" :disabled="documentLocked" /></td>
+                  <td class="num strong">{{ formatCurrency(lineSumAmount(line)) }}</td>
+                  <td class="note-cell">
+                    <Button
+                      :icon="line.remark ? 'pi pi-comment' : 'pi pi-comment'"
+                      text
+                      rounded
+                      :severity="line.remark ? 'info' : 'secondary'"
+                      :aria-label="line.remark ? line.remark : 'เพิ่มหมายเหตุ'"
+                      :disabled="documentLocked"
+                      @click="openRemarkEditor(line)"
+                    />
+                  </td>
+                  <td class="action-cell">
+                    <Button icon="pi pi-trash" text rounded severity="danger" aria-label="ลบรายการ" :disabled="documentLocked" @click="removeLine(index)" />
+                  </td>
+                </tr>
+                <tr v-if="!rows.length">
+                  <td colspan="11" class="empty-lines">ค้นหา/ยิงบาร์โค้ดเพื่อเพิ่มรายการสินค้า</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <aside class="summary-sidebar">
+        <section class="biz-panel totals-card">
+          <div class="panel-title">
+            <i class="pi pi-calculator" />
+            <strong>สรุปยอด</strong>
+          </div>
+          <label class="field">
+            <span>ส่วนลดท้ายบิล</span>
+            <InputText v-model.trim="discountWord" data-testid="sale-bill-discount" placeholder="เช่น 10%, 500" :disabled="documentLocked" />
+          </label>
+          <div class="summary-list">
+            <div><span>ยอดรวมสินค้า</span><strong>{{ formatCurrency(totals.totalValue) }}</strong></div>
+            <div v-if="billDiscountAmount > 0"><span>ส่วนลดท้ายบิล</span><strong class="discount">-{{ formatCurrency(billDiscountAmount) }}</strong></div>
+            <div v-if="promotionDiscountAmount > 0"><span>โปรโมชั่น</span><strong class="discount">-{{ formatCurrency(promotionDiscountAmount) }}</strong></div>
+            <div><span>ยอดก่อนภาษี</span><strong>{{ formatCurrency(totals.beforeVat) }}</strong></div>
+            <div><span>VAT</span><strong>{{ totals.vatValue > 0 ? formatCurrency(totals.vatValue) : '-' }}</strong></div>
+            <div class="net"><span>ยอดสุทธิ</span><strong>{{ formatCurrency(totals.totalAmount) }}</strong></div>
+          </div>
+
+          <div class="promotion-panel" :class="promotionStatusClass">
+            <div class="promotion-panel-head">
+              <div>
+                <span>สถานะโปรโมชั่น</span>
+                <strong>{{ promotionStatusText }}</strong>
+                <small v-if="promotionLastCalculatedAt">คำนวณล่าสุด {{ promotionLastCalculatedAt }}</small>
+              </div>
+              <Button
+                label="คำนวณใหม่"
+                icon="pi pi-refresh"
+                size="small"
+                outlined
+                :loading="promotionLoading"
+                :disabled="documentLocked || !validRows.length || priceRefreshing"
+                @click="recalculatePromotionNow"
+              />
+            </div>
+
+            <Message v-if="promotionError" severity="error" :closable="false">
+              ยังบันทึกไม่ได้ เพราะยังคำนวณโปรโมชั่นไม่สำเร็จ: {{ promotionError }}
+            </Message>
+            <Message
+              v-else-if="promotionStatus === 'success' && !promotionAuditRows.length"
+              severity="info"
+              :closable="false"
+            >
+              คำนวณโปรโมชั่นแล้ว ไม่พบโปรโมชั่นที่เข้าเงื่อนไข
+            </Message>
+
+            <div v-if="promotionAuditRows.length" class="promotion-audit-list">
+              <article v-for="promotion in promotionAuditRows" :key="promotion.key" class="promotion-audit-card">
+                <div class="promotion-audit-main">
+                  <div>
+                    <span class="promotion-code">{{ promotion.code || '-' }}</span>
+                    <strong>{{ promotion.name }}</strong>
+                  </div>
+                  <strong class="discount">-{{ formatCurrency(promotion.amount) }}</strong>
+                </div>
+                <div class="promotion-audit-meta">
+                  <span>จำนวนครั้ง {{ formatQty(promotion.qty || promotion.count || 0) }}</span>
+                  <span>ยอดลด {{ formatCurrency(promotion.amount) }}</span>
+                </div>
+                <div class="promotion-related">
+                  <span>สินค้าที่เกี่ยวข้อง</span>
+                  <div v-if="promotion.relatedItems.length" class="promotion-related-list">
+                    <small v-for="item in promotion.relatedItems" :key="`${promotion.key}-${item.item_code}-${item.unit_code}`">
+                      {{ item.item_code }} {{ item.item_name }} / {{ item.unit_code || '-' }} x {{ formatQty(item.qty) }}
+                    </small>
+                  </div>
+                  <small v-else class="promotion-related-empty">ยังไม่มีรายละเอียดสินค้าจากผลลัพธ์โปรโมชั่น</small>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="isCashSale" class="biz-panel payment-card">
+          <div class="panel-title">
+            <i class="pi pi-wallet" />
+            <strong>รับชำระเงิน</strong>
+          </div>
+
+          <div class="payment-detail-panel">
+            <div class="payment-detail-head">
+              <strong>รายละเอียดการชำระเงิน</strong>
+              <span>{{ paymentEntries.length }} รายการ</span>
+            </div>
+            <div class="payment-detail-grid">
+              <div
+                v-for="row in paymentDetailRows"
+                :key="row.label"
+                :class="['payment-detail-row', { strong: row.strong, muted: row.muted, attention: row.attention }]"
+              >
+                <span>{{ row.label }}</span>
+                <strong>{{ formatCurrency(row.amount) }}</strong>
+              </div>
+            </div>
+            <div v-if="paymentBreakdownRows.length" class="payment-breakdown">
+              <span v-for="row in paymentBreakdownRows" :key="row.key">
+                {{ row.label }} <b>{{ formatCurrency(row.amount) }}</b>
+              </span>
+            </div>
+          </div>
+
+          <div class="pay-tabs">
+            <button
+              v-for="tab in visiblePaymentTypeOptions"
+              :key="tab.value"
+              type="button"
+              :class="{ active: activePayType === tab.value }"
+              :disabled="documentLocked"
+              @click="activePayType = tab.value"
+            >
+              <i :class="tab.icon" />
+              {{ tab.label }}
+            </button>
+          </div>
+
+          <div v-if="activePayType === 'cash'" class="pay-form">
+            <div class="cash-currency-grid">
+              <label class="field">
+                <span>สกุลเงิน</span>
+                <Select
+                  :model-value="cashCurrencyCode"
+                  :options="cashCurrencyOptions"
+                  option-label="label"
+                  option-value="value"
+                  :disabled="documentLocked"
+                  @update:model-value="changeCashCurrency"
+                />
+              </label>
+              <label class="field">
+                <span>จำนวนรับ</span>
+                <InputNumber v-model="cashCurrencyAmount" input-class="text-right" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" :disabled="documentLocked" />
+              </label>
+              <label class="field">
+                <span>อัตราเป็นบาท</span>
+                <InputNumber v-model="cashExchangeRate" input-class="text-right" :min="0" :min-fraction-digits="0" :max-fraction-digits="6" :disabled="documentLocked || cashCurrencyCode === 'THB'" />
+              </label>
+            </div>
+            <div class="cash-converted-preview">
+              <span>คิดเป็นเงินบาท</span>
+              <strong>{{ formatCurrency(cashConvertedAmount) }}</strong>
+            </div>
+            <Button label="เพิ่มเงินสด" icon="pi pi-plus" size="small" :disabled="documentLocked || cashConvertedAmount <= 0 || cashExchangeRate <= 0" @click="addCash" />
+          </div>
+
+          <div v-else-if="activePayType === 'transfer'" class="pay-form">
+            <label class="field">
+              <span>สมุดบัญชี</span>
+              <Select v-model="transferPassBook" :options="passBooks" option-label="label" placeholder="เลือกบัญชี" :disabled="documentLocked" filter />
+            </label>
+            <div v-if="transferPassBook" class="payment-master-note">
+              <span>{{ transferPassBook.bank_name || transferPassBook.bank_code || '-' }}</span>
+              <span>สาขา {{ transferPassBook.branch_name || transferPassBook.bank_branch || '-' }}</span>
+              <span>สกุลเงิน {{ transferPassBook.currency_code || 'THB' }}</span>
+            </div>
+            <label class="field">
+              <span>วันที่โอน</span>
+              <InputText v-model="transferDate" type="date" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>จำนวนเงินโอน</span>
+              <InputNumber v-model="transferInputAmount" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <Button label="เพิ่มโอน" icon="pi pi-plus" size="small" :disabled="documentLocked || !transferPassBook || transferInputAmount <= 0" @click="addTransfer" />
+          </div>
+
+          <div v-else-if="activePayType === 'credit'" class="pay-form">
+            <label class="field">
+              <span>ประเภทบัตร</span>
+              <Select v-model="creditType" :options="creditTypes" option-label="label" placeholder="เลือกประเภทบัตร" :disabled="documentLocked" filter />
+            </label>
+            <div class="payment-master-note">
+              <span>Charge {{ formatCurrency(creditChargePreview) }}</span>
+              <span>ยอดรวมบัตร {{ formatCurrency(creditTotalPreview) }}</span>
+              <span v-if="creditType">อัตรา {{ creditType.charge_rate_word || creditType.charge_rate || '0' }}</span>
+            </div>
+            <label class="field">
+              <span>เลขบัตร/Ref</span>
+              <InputText v-model.trim="creditCardNumber" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>อนุมัติ</span>
+              <InputText v-model.trim="creditApprovalNo" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>จำนวนเงิน</span>
+              <InputNumber v-model="creditInputAmount" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <Button label="เพิ่มบัตร" icon="pi pi-plus" size="small" :disabled="documentLocked || !creditCardNumber || creditInputAmount <= 0" @click="addCredit" />
+          </div>
+
+          <div v-else-if="activePayType === 'cheque'" class="pay-form">
+            <label class="field">
+              <span>สมุดบัญชี</span>
+              <Select v-model="chequePassBook" :options="passBooks" option-label="label" placeholder="เลือกบัญชี" :disabled="documentLocked" filter />
+            </label>
+            <div v-if="chequePassBook" class="payment-master-note">
+              <span>{{ chequePassBook.bank_name || chequePassBook.bank_code || '-' }}</span>
+              <span>สาขา {{ chequePassBook.branch_name || chequePassBook.bank_branch || '-' }}</span>
+              <span>สกุลเงิน {{ chequePassBook.currency_code || 'THB' }}</span>
+            </div>
+            <label class="field">
+              <span>เลขที่เช็ค</span>
+              <InputText v-model.trim="chequeNumber" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>วันที่เช็ค</span>
+              <InputText v-model="chequeDueDate" type="date" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>จำนวนเงิน</span>
+              <InputNumber v-model="chequeAmount" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <Button label="เพิ่มเช็ค" icon="pi pi-plus" size="small" :disabled="documentLocked || !chequeNumber || chequeAmount <= 0" @click="addCheque" />
+          </div>
+
+          <div v-else-if="activePayType === 'petty'" class="pay-form">
+            <label class="field">
+              <span>รหัสเงินสดย่อย</span>
+              <Select v-model="pettyCashAccount" :options="pettyCashList" option-label="label" placeholder="เลือกเงินสดย่อย" :disabled="documentLocked" filter />
+            </label>
+            <div v-if="pettyCashAccount" class="payment-master-note">
+              <span>{{ pettyCashAccount.name_1 || pettyCashAccount.code }}</span>
+              <span>สกุลเงิน {{ pettyCashAccount.currency_code || 'THB' }}</span>
+              <span>คงเหลือ {{ formatCurrency(pettyCashAccount.balance_money || 0) }}</span>
+            </div>
+            <label class="field">
+              <span>จำนวนเงิน</span>
+              <InputNumber v-model="pettyCashAmount" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <Button label="เพิ่มเงินสดย่อย" icon="pi pi-plus" size="small" :disabled="documentLocked || !pettyCashAccount || pettyCashAmount <= 0" @click="addPettyCash" />
+          </div>
+
+          <div v-else-if="activePayType === 'deposit'" class="pay-form">
+            <label class="field wide">
+              <span>เลขที่เงินล่วงหน้า</span>
+              <Select v-model="depositDoc" :options="depositOptions" option-label="label" placeholder="เลือกเอกสารเงินล่วงหน้า" :disabled="documentLocked" filter @show="refreshDepositOptions" />
+            </label>
+            <div v-if="depositDoc" class="payment-master-note">
+              <span>{{ depositDoc.doc_no }}</span>
+              <span>ยอดเอกสาร {{ formatCurrency(depositDoc.amount || depositDoc.total_amount || 0) }}</span>
+              <span>คงเหลือ {{ formatCurrency(depositDoc.balance_amount || 0) }}</span>
+            </div>
+            <label class="field">
+              <span>ยอดตัด</span>
+              <InputNumber v-model="depositAmount" input-class="text-right" :min="0" :max="toNumber(depositDoc?.balance_amount)" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked || !depositDoc" />
+            </label>
+            <Button label="เพิ่มเงินล่วงหน้า" icon="pi pi-plus" size="small" :disabled="documentLocked || !depositDoc || depositAmount <= 0 || depositAmount > toNumber(depositDoc?.balance_amount)" @click="addDeposit" />
+          </div>
+
+          <div v-else-if="activePayType === 'coupon'" class="pay-form">
+            <label class="field wide">
+              <span>เลขที่คูปอง</span>
+              <Select v-model="couponSelected" :options="couponOptions" option-label="label" placeholder="เลือกคูปอง" :disabled="documentLocked" filter @show="refreshCouponOptions" />
+            </label>
+            <div v-if="couponSelected" class="payment-master-note">
+              <span>{{ couponSelected.number }}</span>
+              <span>ใช้ได้ {{ formatCurrency(couponSelected.available_amount ?? couponSelected.balance_amount ?? couponSelected.amount) }}</span>
+              <span v-if="couponSelected.date_expire">หมดอายุ {{ couponSelected.date_expire }}</span>
+            </div>
+            <label class="field">
+              <span>จำนวนเงิน</span>
+              <InputNumber v-model="couponAmount" input-class="text-right" :min="0" :max="toNumber(couponSelected?.available_amount ?? couponSelected?.usable_amount ?? couponSelected?.balance_amount)" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked || !couponSelected" />
+            </label>
+            <Button label="เพิ่มคูปอง" icon="pi pi-plus" size="small" :disabled="documentLocked || !couponSelected || couponAmount <= 0 || couponAmount > toNumber(couponSelected?.available_amount ?? couponSelected?.usable_amount ?? couponSelected?.balance_amount)" @click="addCoupon" />
+          </div>
+
+          <div v-else-if="activePayType === 'income'" class="pay-form">
+            <label class="field">
+              <span>รหัสรายได้</span>
+              <Select v-model="incomeType" :options="incomeTypes" option-label="label" placeholder="เลือกรายได้" :disabled="documentLocked" filter />
+            </label>
+            <label class="field">
+              <span>จำนวนเงิน</span>
+              <InputNumber v-model="incomeAmount" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <Button label="เพิ่มรายได้" icon="pi pi-plus" size="small" :disabled="documentLocked || !incomeType || incomeAmount <= 0" @click="addIncome" />
+          </div>
+
+          <div v-else-if="activePayType === 'expense'" class="pay-form">
+            <label class="field">
+              <span>รหัสค่าใช้จ่าย</span>
+              <Select v-model="expenseType" :options="expenseTypes" option-label="label" placeholder="เลือกค่าใช้จ่าย" :disabled="documentLocked" filter />
+            </label>
+            <label class="field">
+              <span>จำนวนเงิน</span>
+              <InputNumber v-model="expenseAmount" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <Button label="เพิ่มค่าใช้จ่าย" icon="pi pi-plus" size="small" :disabled="documentLocked || !expenseType || expenseAmount <= 0" @click="addExpense" />
+          </div>
+
+          <div v-else-if="activePayType === 'currency'" class="pay-form">
+            <label class="field">
+              <span>สกุลเงิน</span>
+              <Select v-model="otherCurrency" :options="currencyTypes" option-label="label" placeholder="เลือกสกุลเงิน" :disabled="documentLocked" filter />
+            </label>
+            <div v-if="otherCurrency" class="payment-master-note">
+              <span>{{ otherCurrency.code }} {{ otherCurrency.name_1 || '' }}</span>
+              <span>อัตรา {{ formatQty(otherCurrencyRate) }}</span>
+            </div>
+            <label class="field">
+              <span>จำนวนเงิน</span>
+              <InputNumber v-model="otherCurrencyAmount" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>Charge</span>
+              <InputNumber v-model="otherCurrencyCharge" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <div class="cash-converted-preview">
+              <span>ยอดเงินบาท</span>
+              <strong>{{ formatCurrency(otherCurrencyConvertedAmount) }}</strong>
+            </div>
+            <Button label="เพิ่มสกุลเงินอื่นๆ" icon="pi pi-plus" size="small" :disabled="documentLocked || !otherCurrency || otherCurrencyRate <= 0" @click="addOtherCurrency" />
+          </div>
+
+          <div v-else-if="activePayType === 'wallet'" class="pay-form">
+            <label class="field">
+              <span>ประเภท Wallet</span>
+              <Select v-model="walletType" :options="walletTypes" option-label="label" placeholder="เลือก Wallet" :disabled="documentLocked" filter />
+            </label>
+            <div v-if="walletType" class="payment-master-note">
+              <span>{{ walletType.code }}</span>
+              <span>{{ walletType.name_1 || walletType.label }}</span>
+              <span v-if="walletType.account_code">บัญชี {{ walletType.account_code }}</span>
+            </div>
+            <label class="field">
+              <span>เลขที่รายการ</span>
+              <InputText v-model.trim="walletNumber" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>เลขที่อนุมัติ</span>
+              <InputText v-model.trim="walletApprovedNo" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>Ref 1</span>
+              <InputText v-model.trim="walletRef1" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>Ref 2</span>
+              <InputText v-model.trim="walletRef2" :disabled="documentLocked" />
+            </label>
+            <label class="field">
+              <span>จำนวนเงิน</span>
+              <InputNumber v-model="walletAmount" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+            </label>
+            <Button label="เพิ่ม Wallet" icon="pi pi-plus" size="small" :disabled="documentLocked || !walletNumber || walletAmount <= 0" @click="addWallet" />
+          </div>
+
+          <div class="payment-list">
+            <div v-if="!paymentEntries.length" class="payment-empty">ยังไม่มีรายการชำระเงิน</div>
+            <div v-for="entry in paymentEntries" :key="entry.id" class="payment-row">
+              <div>
+                <strong>{{ entry.label }}</strong>
+                <span>{{ paymentEntryDescription(entry) }}</span>
+              </div>
+              <b>{{ formatCurrency(paymentEntryAmount(entry)) }}</b>
+              <Button icon="pi pi-times" text rounded severity="danger" aria-label="ลบชำระเงิน" :disabled="documentLocked" @click="removePayment(entry.id)" />
+            </div>
+          </div>
+
+          <label class="field">
+            <span>ปัดเศษ/ส่วนต่าง</span>
+            <InputNumber v-model="roundedAmount" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
+          </label>
+          <div class="payment-summary">
+            <div><span>รับแล้ว</span><strong>{{ formatCurrency(totalPaid) }}</strong></div>
+            <div><span>{{ paymentChange > 0 ? 'เงินทอน' : 'คงเหลือ' }}</span><strong>{{ formatCurrency(paymentChange > 0 ? paymentChange : remainingPayment) }}</strong></div>
+          </div>
+
+          <Message v-if="paymentReviewNeeded" severity="warn" :closable="false">
+            ยอดเอกสารเปลี่ยนหลังมีรายการชำระเงิน กรุณาตรวจสอบยอดรับชำระก่อนบันทึก
+            <Button label="ยืนยันยอดชำระถูกต้อง" size="small" text :disabled="documentLocked" @click="confirmPaymentReview" />
+          </Message>
+          <Message v-if="!cashChangeAllowed" severity="error" :closable="false">
+            เงินทอนต้องมาจากยอดรับเงินสดเท่านั้น
+          </Message>
+
+          <div v-if="validationMessages.length" class="save-warnings">
+            <span v-for="message in validationMessages" :key="message">{{ message }}</span>
+          </div>
+          <Button class="save-btn" :label="successDocNo ? 'บันทึกแล้ว' : 'บันทึกเอกสารขาย'" icon="pi pi-save" :loading="saving" :disabled="!canSave || !!successDocNo" @click="saveDocument" />
+        </section>
+        <section v-else class="biz-panel payment-card credit-sale-card">
+          <div class="panel-title">
+            <i class="pi pi-file-check" />
+            <strong>ขายเชื่อ</strong>
+          </div>
+          <Message severity="info" :closable="false">
+            เอกสารขายเชื่อจะไม่เปิดรับชำระเงิน และจะไม่บันทึกรายการรับเงินในเอกสารนี้
+          </Message>
+          <div v-if="validationMessages.length" class="save-warnings">
+            <span v-for="message in validationMessages" :key="message">{{ message }}</span>
+          </div>
+          <Button class="save-btn" :label="successDocNo ? 'บันทึกแล้ว' : 'บันทึกเอกสารขาย'" icon="pi pi-save" :loading="saving" :disabled="!canSave || !!successDocNo" @click="saveDocument" />
+        </section>
+      </aside>
+    </div>
+
+    <Dialog
+      :visible="creditApproveDialogVisible"
+      header="อนุมัติวงเงินเครดิต"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(460px, 94vw)' }"
+      @update:visible="creditApproveDialogVisible = $event"
+    >
+      <div class="credit-approve-dialog">
+        <Message severity="warn" :closable="false">{{ creditApproveMessage }}</Message>
+        <ul v-if="creditApproveDetails.length">
+          <li v-for="detail in creditApproveDetails" :key="detail">{{ detail }}</li>
+        </ul>
+        <label>
+          <span>ผู้อนุมัติ</span>
+          <InputText v-model.trim="creditApproveUser" autocomplete="off" autofocus />
+        </label>
+        <label>
+          <span>รหัสผ่าน</span>
+          <InputText v-model="creditApprovePassword" type="password" autocomplete="current-password" @keyup.enter="submitCreditApprove" />
+        </label>
+      </div>
+      <template #footer>
+        <Button label="ยกเลิก" severity="secondary" text @click="creditApproveDialogVisible = false" />
+        <Button label="อนุมัติและบันทึก" icon="pi pi-check" severity="warning" :loading="saving" @click="submitCreditApprove" />
+      </template>
+    </Dialog>
+
+    <Dialog
+      :visible="saveDialogVisible"
+      :header="saveDialogTitle"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(520px, 94vw)' }"
+      @update:visible="saveDialogVisible = $event"
+    >
+      <div class="save-feedback-dialog" :class="`is-${saveDialogType}`">
+        <div class="save-feedback-icon">
+          <i :class="saveDialogIcon" />
+        </div>
+        <div class="save-feedback-content">
+          <p>{{ saveDialogMessage }}</p>
+          <ul v-if="saveDialogDetails.length">
+            <li v-for="detail in saveDialogDetails" :key="detail">{{ detail }}</li>
+          </ul>
+        </div>
+      </div>
+      <template #footer>
+        <Button
+          v-if="saveDialogPrimaryAction"
+          :label="saveDialogPrimaryLabel || 'ดำเนินการต่อ'"
+          icon="pi pi-check"
+          :severity="saveDialogPrimarySeverity"
+          @click="runSaveDialogPrimaryAction"
+        />
+        <Button
+          v-if="saveDialogType === 'warn' && paymentReviewNeeded"
+          label="ยืนยันยอดชำระถูกต้อง"
+          icon="pi pi-check"
+          severity="warning"
+          outlined
+          @click="confirmPaymentReview(); saveDialogVisible = false"
+        />
+        <Button
+          v-if="saveDialogType === 'success' && successDocNo"
+          label="เอกสารใหม่"
+          icon="pi pi-plus"
+          severity="secondary"
+          outlined
+          @click="newDocument"
+        />
+        <Button
+          v-if="saveDialogType === 'success' && successDocNo"
+          label="พิมพ์ฟอร์ม"
+          icon="pi pi-print"
+          @click="saveDialogVisible = false; openPrintDialog()"
+        />
+        <Button label="ปิด" severity="secondary" text @click="saveDialogVisible = false" />
+      </template>
+    </Dialog>
+
+    <Dialog
+      :visible="promotionGuideDialogVisible"
+      header="โปรโมชั่นที่เกี่ยวข้อง"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(820px, 94vw)' }"
+      @update:visible="promotionGuideDialogVisible = $event"
+    >
+      <Accordion v-if="promotionGuideDialogPromotions.length" class="promotion-guide-accordion">
+        <AccordionPanel
+          v-for="(promotion, index) in promotionGuideDialogPromotions"
+          :key="promotion.promotion_code"
+          :value="String(index)"
+        >
+          <AccordionHeader>
+            <div class="promotion-guide-accordion-title">
+              <strong>{{ promotion.promotion_code }}</strong>
+              <span>{{ promotion.promotion_name }}</span>
+              <small :class="{ active: promotion.is_applied }">
+                {{ promotion.is_applied ? 'เข้าเงื่อนไขแล้ว' : 'ยังไม่เข้าเงื่อนไข' }}
+              </small>
+            </div>
+          </AccordionHeader>
+          <AccordionContent>
+            <div class="promotion-guide-card">
+              <section class="promotion-guide-section">
+                <span class="promotion-guide-section-title" style="color:darkgreen">สินค้าเงื่อนไข</span>
+                <div v-if="promotion.condition_items?.length" class="promotion-guide-items">
+                  <div
+                    v-for="item in promotion.condition_items"
+                    :key="`${promotion.promotion_code}-condition-${item.item_code}-${item.unit_code}-${item.group_number}`"
+                    class="promotion-guide-item"
+                    :class="{ matched: item.is_in_cart }"
+                  >
+                    <strong>{{ item.item_code }}</strong>
+                    <span>{{ item.item_name || '-' }}</span>
+                    <small>
+                      {{ item.unit_code || '-' }}
+                      <template v-if="toNumber(item.required_qty) > 0"> · เงื่อนไข {{ formatQty(item.required_qty) }}</template>
+             
+                    </small>
+                  </div>
+                </div>
+                <div v-else class="promotion-guide-empty">ไม่มีรายการสินค้าเงื่อนไข</div>
+              </section>
+
+              <section class="promotion-guide-section">
+                <span class="promotion-guide-section-title" style="color:crimson">สินค้าโปรโมชั่น</span>
+                <div v-if="promotion.action_items?.length" class="promotion-guide-items">
+                  <div
+                    v-for="item in promotion.action_items"
+                    :key="`${promotion.promotion_code}-action-${item.item_code}-${item.unit_code}`"
+                    class="promotion-guide-item action"
+                  >
+                    <strong>{{ item.item_code }}</strong>
+                    <span>{{ item.item_name || '-' }}</span>
+                    <small>
+                      {{ item.unit_code || '-' }}
+                      <template v-if="toNumber(item.qty) > 0"> · จำนวน {{ formatQty(item.qty) }}</template>
+                    </small>
+                  </div>
+                </div>
+                <div v-else class="promotion-guide-empty">โปรโมชั่นนี้เป็นส่วนลด หรือไม่มี action_command รูปแบบรหัสสินค้า,หน่วยนับ</div>
+              </section>
+            </div>
+          </AccordionContent>
+        </AccordionPanel>
+      </Accordion>
+      <div v-else class="empty-lines">ไม่มีโปรโมชั่นที่ใช้งานได้สำหรับสินค้านี้</div>
+      <template #footer>
+        <Button label="ปิด" severity="secondary" text @click="promotionGuideDialogVisible = false" />
+      </template>
+    </Dialog>
+
+    <Dialog
+      :visible="customerDialogVisible"
+      header="ค้นหาลูกค้า"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(720px, 95vw)' }"
+      @update:visible="customerDialogVisible = $event"
+    >
+      <div class="entity-dialog-body">
+        <div class="dialog-search-row">
+          <InputText v-model.trim="custSearch" data-testid="sale-customer-search" placeholder="รหัสลูกค้า / ชื่อลูกค้า" autofocus :disabled="documentLocked" @update:model-value="searchCustomers" @keyup.enter="loadCustomers" />
+          <Button label="ค้นหา" icon="pi pi-search" :loading="custLoading" :disabled="documentLocked" @click="loadCustomers" />
+          <Button label="ลูกค้าทั่วไป" icon="pi pi-refresh" severity="secondary" outlined :disabled="documentLocked" @click="selectWalkIn" />
+        </div>
+        <div v-if="custLoading" class="lookup-hint">กำลังค้นหา...</div>
+        <div v-else-if="custResults.length" class="dialog-result-list">
+          <button v-for="customer in custResults" :key="customer.code" type="button" :disabled="documentLocked" @click="selectCustomer(customer)">
+            <strong>{{ customer.code }}</strong>
+            <span>{{ customer.name || customer.name_1 }}</span>
+          </button>
+        </div>
+        <div v-else class="empty-lines">{{ custSearch ? 'ไม่พบลูกค้า' : 'กรอกคำค้นหาเพื่อค้นหาลูกค้า' }}</div>
+      </div>
+    </Dialog>
+
+    <Dialog
+      :visible="employeeDialogVisible"
+      header="ค้นหาพนักงานขาย"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(720px, 95vw)' }"
+      @update:visible="employeeDialogVisible = $event"
+    >
+      <div class="entity-dialog-body">
+        <div class="dialog-search-row">
+          <InputText v-model.trim="saleSearch" data-testid="sale-employee-search" placeholder="รหัสพนักงาน / ชื่อพนักงาน" autofocus :disabled="documentLocked" @update:model-value="searchEmployees" @keyup.enter="loadEmployees" />
+          <Button label="ค้นหา" icon="pi pi-search" :loading="saleLoading" :disabled="documentLocked" @click="loadEmployees" />
+          <Button label="พนักงานเริ่มต้น" icon="pi pi-refresh" severity="secondary" outlined :disabled="documentLocked" @click="resetEmployeeToDefault" />
+        </div>
+        <div v-if="saleLoading" class="lookup-hint">กำลังค้นหา...</div>
+        <div v-else-if="saleResults.length" class="dialog-result-list">
+          <button v-for="employee in saleResults" :key="employee.code" type="button" :disabled="documentLocked" @click="selectEmployee(employee)">
+            <strong>{{ employee.code }}</strong>
+            <span>{{ employee.name || employee.name_1 }}</span>
+          </button>
+        </div>
+        <div v-else class="empty-lines">{{ saleSearch ? 'ไม่พบพนักงานขาย' : 'กรอกคำค้นหาเพื่อค้นหาพนักงานขาย' }}</div>
+      </div>
+    </Dialog>
+
+    <Dialog
+      :visible="priceEditorVisible"
+      header="แก้ไขราคา"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(380px, 94vw)' }"
+      @update:visible="priceEditorVisible = $event"
+    >
+      <div class="line-edit-dialog">
+        <div class="line-edit-title">
+          <strong>{{ priceEditLine?.item_name || '-' }}</strong>
+          <span>{{ priceEditLine?.item_code || '' }} / {{ priceEditLine?.unit_code || '' }}</span>
+        </div>
+        <label class="field">
+          <span>ราคา</span>
+          <InputNumber v-model="priceEditValue" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" autofocus />
+        </label>
+      </div>
+      <template #footer>
+        <Button label="ยกเลิก" severity="secondary" outlined @click="priceEditorVisible = false" />
+        <Button label="บันทึก" icon="pi pi-check" @click="confirmPriceEditor" />
+      </template>
+    </Dialog>
+
+    <Dialog
+      :visible="remarkEditorVisible"
+      header="หมายเหตุรายการ"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(520px, 94vw)' }"
+      @update:visible="remarkEditorVisible = $event"
+    >
+      <div class="line-edit-dialog">
+        <div class="line-edit-title">
+          <strong>{{ remarkEditLine?.item_name || '-' }}</strong>
+          <span>{{ remarkEditLine?.item_code || '' }} / {{ remarkEditLine?.unit_code || '' }}</span>
+        </div>
+        <label class="field">
+          <span>หมายเหตุ</span>
+          <Textarea v-model.trim="remarkEditText" rows="4" auto-resize autofocus />
+        </label>
+      </div>
+      <template #footer>
+        <Button label="ล้าง" severity="secondary" text @click="remarkEditText = ''" />
+        <Button label="ยกเลิก" severity="secondary" outlined @click="remarkEditorVisible = false" />
+        <Button label="บันทึก" icon="pi pi-check" @click="confirmRemarkEditor" />
+      </template>
+    </Dialog>
+
+    <Dialog
+      :visible="productDialogVisible"
+      header="เลือกสินค้า"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(980px, 96vw)' }"
+      @update:visible="productDialogVisible = $event"
+    >
+      <div class="product-results">
+        <div v-if="productResults.length" class="product-result-header">
+          <span>รหัส</span>
+          <span>สินค้า</span>
+          <span>หน่วย</span>
+          <span>บาร์โค้ด</span>
+          <span>คงเหลือ</span>
+        </div>
+        <button
+          v-for="product in productResults"
+          :key="productResultKey(product)"
+          class="product-result-row"
+          type="button"
+          :disabled="documentLocked"
+          @click="addProductFromSearch(product)"
+        >
+          <strong class="result-code">{{ product.item_code }}</strong>
+          <span class="result-name">{{ product.item_name }}</span>
+          <span class="result-unit">{{ product.unit_code || '-' }}</span>
+          <span class="result-barcode">{{ product.barcode || '-' }}</span>
+          <span class="result-balance">{{ product.balance_qty == null ? '-' : formatQty(product.balance_qty) }}</span>
+        </button>
+        <div v-if="!productResults.length" class="empty-lines">ไม่พบสินค้า</div>
+      </div>
+    </Dialog>
+
+    <SalesProductBasketDialog
+      v-model:visible="productBasketVisible"
+      :cust-code="custCode"
+      :price-opts="priceOpts()"
+      @confirm="addProductBasketToSale"
+    />
+
+    <Dialog
+      :visible="printDialogVisible"
+      header="เลือกฟอร์มสำหรับพิมพ์"
+      modal
+      :draggable="false"
+      :style="{ width: 'min(460px, 95vw)' }"
+      @update:visible="printDialogVisible = $event"
+    >
+      <div class="print-dialog-body">
+        <div class="print-doc-no">{{ successDocNo }}</div>
+        <div v-if="printLoading" class="lookup-hint">กำลังโหลดฟอร์ม...</div>
+        <Message v-else-if="printError" severity="error" :closable="false">{{ printError }}</Message>
+        <div v-else class="print-form-list">
+          <label v-for="form in printForms" :key="form.formcode" class="print-form-row" :class="{ disabled: !form.available }">
+            <input v-model="selectedPrintForms" type="checkbox" :value="form.formcode" :disabled="!form.available">
+            <span>
+              <strong>{{ form.formname }}</strong>
+              <small>{{ form.formcode }}<template v-if="!form.available"> · ไม่พบใน formdesign</template></small>
+            </span>
+          </label>
+        </div>
+      </div>
+      <template #footer>
+        <Button label="ปิด" severity="secondary" outlined @click="printDialogVisible = false" />
+        <Button label="พิมพ์" icon="pi pi-print" :disabled="!selectedPrintForms.length" @click="confirmPrintForms" />
+      </template>
+    </Dialog>
+  </div>
+</template>
+
+<style scoped>
+.sell-view {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.sell-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 0.875rem;
+  align-items: start;
+}
+
+.document-workspace {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.summary-sidebar {
+  position: sticky;
+  top: 0.75rem;
+  display: flex;
+  max-height: calc(100vh - 1.5rem);
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.875rem;
+  overflow-y: auto;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.panel-title i {
+  color: var(--p-primary-color);
+}
+
+.panel-title button {
+  margin-left: auto;
+}
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field > span {
+  color: var(--p-text-color-secondary);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.field.wide {
+  grid-column: span 4;
+}
+
+.entity-field {
+  grid-column: span 2;
+}
+
+.entity-picker,
+.dialog-search-row {
+  display: flex;
+  min-width: 0;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.entity-picker :deep(.p-inputtext) {
+  cursor: pointer;
+}
+
+.entity-picker :deep(.p-button) {
+  flex: 0 0 auto;
+}
+
+.entity-dialog-body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dialog-search-row :deep(.p-inputtext) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.field :deep(.p-inputtext),
+.field :deep(.p-select),
+.tool-input :deep(.p-inputtext) {
+  width: 100%;
+}
+
+.credit-check-message {
+  margin-top: 0.75rem;
+}
+
+.additional-panel h3 {
+  margin: 0 0 0.65rem;
+  color: var(--p-text-color);
+  font-size: 0.9rem;
+}
+
+.extra-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.extra-doc-block {
+  min-width: 0;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--p-surface-0);
+  padding: 0.75rem;
+}
+
+.extra-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.wide-local {
+  grid-column: 1 / -1;
+}
+
+.extra-inline-form {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 130px 90px auto;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.extra-inline-form.gl-form {
+  grid-template-columns: minmax(180px, 1fr) 120px 120px auto;
+}
+
+.extra-inline-form :deep(.p-inputtext),
+.extra-inline-form :deep(.p-inputnumber),
+.extra-inline-form :deep(.p-select) {
+  width: 100%;
+}
+
+.mini-table {
+  display: grid;
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--p-surface-border);
+}
+
+.mini-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) 110px 70px 110px auto;
+  gap: 0.5rem;
+  align-items: center;
+  border-bottom: 1px solid var(--p-surface-border);
+  color: var(--p-text-color-secondary);
+  font-size: 0.82rem;
+  padding: 0.4rem 0;
+}
+
+.mini-row.gl-row {
+  grid-template-columns: minmax(160px, 1fr) 120px 120px auto;
+}
+
+.mini-row.total {
+  color: var(--p-text-color);
+  font-weight: 700;
+}
+
+.mini-row.warning {
+  color: var(--p-orange-600);
+}
+
+.lookup-hint {
+  color: var(--p-text-color-secondary);
+  font-size: 0.8rem;
+  padding: 0.5rem 0;
+}
+
+.dialog-result-list button {
+  display: grid;
+  width: 100%;
+  gap: 0.15rem;
+  border: 0;
+  border-bottom: 1px solid var(--p-surface-border);
+  background: transparent;
+  color: var(--p-text-color);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+.dialog-result-list button:hover {
+  background: var(--p-surface-hover);
+}
+
+.dialog-result-list span,
+.product-results span {
+  overflow: hidden;
+  color: var(--p-text-color-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.tool-input {
+  display: flex;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.product-action-buttons {
+  display: flex;
+}
+
+.product-action-buttons :deep(.p-button) {
+  white-space: nowrap;
+}
+
+.lines-title {
+  justify-content: space-between;
+}
+
+.lines-title span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lines-table-wrap {
+  overflow-x: auto;
+}
+
+.lines-table {
+  width: 100%;
+  min-width: 1320px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.line-col-index { width: 3rem; }
+.line-col-item { width: 23%; }
+.line-col-code { width: 8.5rem; }
+.line-col-unit { width: 5.5rem; }
+.line-col-location { width: 13.5rem; }
+.line-col-qty { width: 9.5rem; }
+.line-col-price { width: 8rem; }
+.line-col-discount { width: 8.25rem; }
+.line-col-total { width: 7rem; }
+.line-col-note { width: 3.75rem; }
+.line-col-action { width: 3.25rem; }
+
+.lines-table th,
+.lines-table td {
+  border-bottom: 1px solid var(--p-surface-border);
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.lines-table th {
+  color: var(--p-text-color-secondary);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.lines-table .num,
+.text-right {
+  text-align: right;
+}
+
+/* .item-name {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+} */
+
+.line-index {
+  color: var(--p-text-color-secondary);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.line-location-cell {
+  min-width: 0;
+}
+
+.line-location-selects {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.35rem;
+}
+
+.line-location-selects :deep(.p-select) {
+  min-width: 0;
+  width: 100%;
+}
+
+.line-name-row {
+  display: flex;
+  min-width: 0;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.line-name-row strong {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-pro-button {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.item-name small {
+  color: var(--p-text-color-secondary);
+  font-size: 0.72rem;
+}
+
+.item-name .line-error {
+  color: var(--p-red-500);
+}
+
+.row-warning {
+  background: color-mix(in srgb, var(--p-red-50) 70%, transparent);
+}
+
+/* สินค้าชุด (item_type=3): badge บนชื่อ + แถบไฮไลท์เบาๆ ของ parent + child rows */
+.line-set-badge,
+.result-set-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.08rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(37, 99, 235, 0.12);
+  color: rgb(29, 78, 216);
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.line-set-badge i,
+.result-set-badge i {
+  font-size: 0.7rem;
+}
+
+.row-set-parent > td {
+  border-bottom-color: transparent;
+}
+
+.row-set-children > td {
+  background: color-mix(in srgb, var(--p-primary-50, #eff6ff) 60%, transparent);
+  border-top: 0;
+  padding-top: 0.25rem;
+  padding-bottom: 0.5rem;
+}
+
+.set-children-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-left: 3px solid var(--p-primary-color, #2563eb);
+  border-radius: 0 6px 6px 0;
+}
+
+.set-children-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--p-text-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.set-children-title i {
+  font-size: 0.75rem;
+}
+
+.set-children-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.set-child-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.8fr) minmax(160px, 2fr) minmax(110px, 1fr) minmax(110px, 1fr);
+  gap: 0.5rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  align-items: center;
+}
+
+.set-child-code {
+  font-weight: 600;
+  color: var(--p-text-color-secondary);
+}
+
+.set-child-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-child-qty,
+.set-child-total {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.set-child-total {
+  font-weight: 600;
+  color: var(--p-primary-color, #2563eb);
+}
+
+.cell-input {
+  width: 100%;
+}
+
+.qty-cell,
+.price-cell,
+.note-cell,
+.action-cell {
+  white-space: nowrap;
+}
+
+.line-qty-stepper {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) 1.75rem;
+  width: 100%;
+  max-width: 8.5rem;
+  gap: 0.25rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+.line-qty-stepper :deep(.p-button) {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.line-qty-stepper :deep(.p-inputnumber) {
+  width: 100%;
+  min-width: 0;
+}
+
+.line-qty-stepper :deep(.line-qty-input) {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 0.45rem;
+  text-align: center;
+}
+
+.line-price-button {
+  display: inline-flex;
+  width: 100%;
+  max-width: 7.25rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  color: var(--p-text-color);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.25rem 0;
+  text-align: right;
+}
+
+.line-price-button:hover:not(:disabled) {
+  color: var(--p-primary-color);
+}
+
+.line-price-button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.line-price-button i {
+  color: var(--p-text-color-secondary);
+  font-size: 0.78rem;
+}
+
+.line-discount-input {
+  max-width: 7.5rem;
+}
+
+.note-cell,
+.action-cell {
+  width: 3rem;
+  text-align: center;
+}
+
+.line-edit-dialog {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.line-edit-title {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--p-surface-ground);
+}
+
+.line-edit-title strong,
+.line-edit-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-edit-title span {
+  color: var(--p-text-color-secondary);
+  font-size: 0.78rem;
+}
+
+.promotion-guide-accordion {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.promotion-guide-accordion :deep(.p-accordionpanel) {
+  overflow: hidden;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--app-panel-bg);
+}
+
+.promotion-guide-accordion-title {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  width: 100%;
+  min-width: 0;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.promotion-guide-accordion-title strong {
+  color: var(--p-primary-color);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.promotion-guide-accordion-title span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promotion-guide-accordion-title small {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--p-surface-ground);
+  color: var(--p-text-color-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.promotion-guide-accordion-title small.active {
+  background: #dcfce7;
+  color: #047857;
+}
+
+.promotion-guide-card {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.promotion-guide-section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.promotion-guide-section-title {
+  color: var(--p-text-color-secondary);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.promotion-guide-items {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.promotion-guide-item {
+  display: grid;
+  grid-template-columns: minmax(6rem, auto) minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--p-surface-ground);
+}
+
+.promotion-guide-item.matched {
+  border-color: color-mix(in srgb, var(--p-primary-color) 35%, var(--p-surface-border));
+  background: color-mix(in srgb, var(--p-primary-color) 8%, var(--p-surface-ground));
+}
+
+.promotion-guide-item.action {
+  border-color: color-mix(in srgb, var(--p-green-500) 35%, var(--p-surface-border));
+}
+
+.promotion-guide-item strong,
+.promotion-guide-item span,
+.promotion-guide-item small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promotion-guide-item strong {
+  color: var(--p-text-color);
+  font-weight: 800;
+}
+
+.promotion-guide-item small,
+.promotion-guide-empty {
+  color: var(--p-text-color-secondary);
+  font-size: 0.76rem;
+}
+
+.promotion-guide-empty {
+  padding: 0.55rem 0.65rem;
+  border: 1px dashed var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--p-surface-ground);
+}
+
+.strong {
+  font-weight: 800;
+  color: var(--p-primary-color);
+}
+
+.action-cell {
+  width: 3rem;
+  text-align: center;
+}
+
+.empty-lines,
+.payment-empty {
+  color: var(--p-text-color-secondary);
+  padding: 1rem;
+  text-align: center;
+}
+
+.summary-list,
+.payment-summary {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.summary-list > div,
+.payment-summary > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.summary-list .net {
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--p-surface-border);
+}
+
+.summary-list .net strong {
+  color: var(--p-primary-color);
+  font-size: 1.35rem;
+}
+
+.promotion-panel {
+  display: grid;
+  gap: 0.625rem;
+  margin-top: 0.875rem;
+  padding: 0.75rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--p-surface-ground);
+}
+
+.promotion-panel-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.promotion-panel-head > div {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.promotion-panel-head span,
+.promotion-panel-head small,
+.promotion-related > span,
+.promotion-related-empty,
+.promotion-audit-meta {
+  color: var(--p-text-color-secondary);
+  font-size: 0.74rem;
+}
+
+.promotion-panel-head strong {
+  font-size: 0.95rem;
+}
+
+.promotion-panel.status-success {
+  border-color: color-mix(in srgb, var(--p-green-500) 35%, var(--p-surface-border));
+}
+
+.promotion-panel.status-error {
+  border-color: color-mix(in srgb, var(--p-red-500) 45%, var(--p-surface-border));
+}
+
+.promotion-panel.status-calculating {
+  border-color: color-mix(in srgb, var(--p-primary-color) 35%, var(--p-surface-border));
+}
+
+.promotion-audit-list {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.promotion-audit-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--app-panel-bg);
+}
+
+.promotion-audit-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.promotion-audit-main > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+
+.promotion-code {
+  width: fit-content;
+  padding: 0.08rem 0.35rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 6px;
+  color: var(--p-text-color-secondary);
+  font-size: 0.72rem;
+}
+
+.promotion-audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.promotion-related {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.promotion-related-list {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.promotion-related-list small {
+  color: var(--p-text-color);
+}
+
+.discount {
+  color: var(--p-red-500);
+}
+
+.payment-detail-panel {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--p-surface-ground);
+}
+
+.payment-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.payment-detail-head span {
+  color: var(--p-text-color-secondary);
+  font-size: 0.76rem;
+}
+
+.payment-detail-grid {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.payment-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--p-text-color-secondary);
+  font-size: 0.82rem;
+}
+
+.payment-detail-row strong {
+  color: var(--p-text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.payment-detail-row.strong {
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--p-surface-border);
+  color: var(--p-text-color);
+  font-weight: 800;
+}
+
+.payment-detail-row.strong strong 

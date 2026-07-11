@@ -1,0 +1,7 @@
+.agents
+.chrome-codex-ui
+.codex
+.codex_tmp
+.codex-chrome-profile
+smlerp
+package-lock.json
