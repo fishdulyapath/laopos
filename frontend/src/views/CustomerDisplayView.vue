@@ -767,9 +767,9 @@ watch(activeAdIndex, async () => {
   <main class="customer-display" data-font-zone="screen" :data-display-language="displayLanguage">
     <section class="display-top" data-font-zone="customer-display-header">
       <div class="brand-area">
-        <img src="/santipab.png" alt="logo" class="brand-mark" />
+        <img src="/applogo.png" alt="NextStep logo" class="brand-mark" />
         <div>
-          <strong>ສັນຕິພາບ</strong>
+          <strong>NextStep POS</strong>
         </div>
       </div>
       <div class="customer-area">
@@ -962,11 +962,11 @@ watch(activeAdIndex, async () => {
 
 <style scoped>
 .customer-display {
-  --cd-orange: #ff6500;
-  --cd-orange-strong: #ea580c;
-  --cd-orange-dark: #c2410c;
-  --cd-orange-soft: #fff7ed;
-  --cd-orange-veil: #fffaf5;
+  --cd-blue: #0ea5e9;
+  --cd-blue-strong: #0284c7;
+  --cd-blue-dark: #0369a1;
+  --cd-blue-soft: #eff6ff;
+  --cd-blue-veil: #f8fbff;
   --cd-border: rgba(249, 115, 22, 0.42);
   --cd-green: #16a34a;
   --cd-green-dark: #15803d;
@@ -976,7 +976,7 @@ watch(activeAdIndex, async () => {
   grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
-  background: radial-gradient(circle at 28% 18%, rgba(255, 122, 0, 0.07), transparent 28rem), linear-gradient(180deg, #fffaf5 0%, #ffffff 42%, #fffdfb 100%);
+  background: radial-gradient(circle at 28% 18%, rgba(255, 122, 0, 0.07), transparent 28rem), linear-gradient(180deg, #f8fbff 0%, #ffffff 42%, #fffdfb 100%);
   color: var(--cd-ink);
   font-family: var(--biz-font-family);
   position: relative;
@@ -1030,7 +1030,7 @@ watch(activeAdIndex, async () => {
   gap: 1.25rem;
   min-height: 5.25rem;
   padding: 0.75rem 1.35rem;
-  background: linear-gradient(180deg, #ff5a00 0%, #ff7a00 48%, #ff8a00 100%);
+  background: linear-gradient(180deg, #0369a1 0%, #0284c7 48%, #0ea5e9 100%);
   color: #fff;
   box-shadow: 0 12px 28px rgba(234, 88, 12, 0.18);
 }
@@ -1175,8 +1175,8 @@ watch(activeAdIndex, async () => {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #fed7aa;
-  background: var(--cd-orange-soft);
+  border-bottom: 1px solid #bae6fd;
+  background: var(--cd-blue-soft);
 }
 
 .items-panel header div {
@@ -1186,7 +1186,7 @@ watch(activeAdIndex, async () => {
 
 .items-panel header span,
 .items-panel header small {
-  color: var(--cd-orange-dark);
+  color: var(--cd-blue-dark);
   font-weight: 850;
 }
 
@@ -1231,7 +1231,7 @@ watch(activeAdIndex, async () => {
   min-width: 1.4rem;
   text-align: center;
   font-weight: 800;
-  /* color: var(--cd-orange); */
+  /* color: var(--cd-blue); */
   font-variant-numeric: tabular-nums;
 }
 
@@ -1252,7 +1252,7 @@ watch(activeAdIndex, async () => {
 }
 
 .item-head-title i {
-  color: var(--cd-orange);
+  color: var(--cd-blue);
   font-size: calc(var(--biz-zone-font-size, 1rem) * 1.4);
 }
 
@@ -1270,7 +1270,7 @@ watch(activeAdIndex, async () => {
 .item-row {
   min-height: 3rem;
   padding: 0rem 1.35rem;
-  border-bottom: 1px solid #ffedd5;
+  border-bottom: 1px solid #dbeafe;
 }
 
 .item-row.latest .item-name strong {
@@ -1335,7 +1335,7 @@ watch(activeAdIndex, async () => {
 }
 
 .item-total small {
-  color: var(--cd-orange);
+  color: var(--cd-blue);
   font-size: calc(var(--biz-zone-font-size, 1rem) * 0.78);
   font-weight: 900;
 }
@@ -1383,7 +1383,7 @@ watch(activeAdIndex, async () => {
 .rail-summary-card {
   width: 100%;
   padding: 0 0 0.1rem;
-  border-bottom: 1px solid #ffedd5;
+  border-bottom: 1px solid #dbeafe;
   background: transparent;
 }
 
@@ -1404,7 +1404,7 @@ watch(activeAdIndex, async () => {
   display: block;
   max-width: 100%;
   overflow: hidden;
-  color: var(--cd-orange);
+  color: var(--cd-blue);
   font-size: clamp(calc(var(--biz-zone-font-size, 1rem) * 2.2), 3.2vw, calc(var(--biz-zone-font-size, 1rem) * 3.3));
   font-weight: 950;
   line-height: 0.92;
@@ -1430,7 +1430,7 @@ watch(activeAdIndex, async () => {
   min-height: 0;
   height: 100%;
   padding: 0.2rem 0.4rem 0.2rem;
-  border: 1px solid #ffedd5;
+  border: 1px solid #dbeafe;
   border-radius: 0px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 22px 48px rgba(15, 23, 42, 0.1);
@@ -1471,7 +1471,7 @@ watch(activeAdIndex, async () => {
   width: min(calc(var(--biz-zone-font-size, 1rem) * 12.6), 82%);
   gap: 0.6rem;
   /* padding: calc(var(--biz-zone-font-size, 1rem) * 0.45) calc(var(--biz-zone-font-size, 1rem) * 0.65);
-  border: 1px solid #ff5a00;
+  border: 1px solid #0369a1;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08); */
@@ -1510,7 +1510,7 @@ watch(activeAdIndex, async () => {
   content: "";
   position: absolute;
   inset: -0.45rem;
-  border: 3px solid var(--cd-orange);
+  border: 3px solid var(--cd-blue);
   border-radius: 10px;
   pointer-events: none;
 }
@@ -1686,10 +1686,10 @@ watch(activeAdIndex, async () => {
   place-items: center;
   gap: 0.3rem;
   margin-top: auto;
-  border: 2px dashed #fdba74;
+  border: 2px dashed #7dd3fc;
   border-radius: 16px;
-  background: #fffaf5;
-  color: var(--cd-orange);
+  background: #f8fbff;
+  color: var(--cd-blue);
   animation: scannerGlow 2.4s ease-in-out infinite;
 }
 
@@ -1698,7 +1698,7 @@ watch(activeAdIndex, async () => {
 }
 
 .qr-scanner-box span {
-  color: #7c2d12;
+  color: #0c4a6e;
   font-size: calc(var(--biz-zone-font-size, 1rem) * 1.05);
   font-weight: 950;
 }
@@ -1744,7 +1744,7 @@ watch(activeAdIndex, async () => {
   height: 100%;
   overflow: hidden;
   border-radius: 0px;
-  /* border: 1px solid #ffedd5; */
+  /* border: 1px solid #dbeafe; */
   background: #fff;
 }
 
@@ -1805,7 +1805,7 @@ watch(activeAdIndex, async () => {
   place-items: center;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
-  color: var(--cd-orange);
+  color: var(--cd-blue);
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
 }
 
@@ -1947,7 +1947,7 @@ watch(activeAdIndex, async () => {
 }
 
 .thankyou-lines .change {
-  color: var(--cd-orange);
+  color: var(--cd-blue);
 }
 
 .satisfaction-panel {
@@ -2116,7 +2116,7 @@ watch(activeAdIndex, async () => {
 
 .idle-benefits i {
   grid-row: 1 / 3;
-  color: var(--cd-orange);
+  color: var(--cd-blue);
   font-size: 2.15rem;
 }
 
@@ -2144,7 +2144,7 @@ watch(activeAdIndex, async () => {
 
 .idle-thanks i,
 .idle-thanks b {
-  color: var(--cd-orange);
+  color: var(--cd-blue);
 }
 
 .idle-thanks i {

@@ -700,7 +700,7 @@ async function getPricePos({
   branchCode = '',
   defaultCustCode = '',
   docDate = null,
-  currencyCode = 'BTH',
+  currencyCode = 'LAK',
 } = {}) {
   const today = docDate || todayLocalDate();
   const qtyVal = (!qty || qty === '0' || qty === 0) ? 1 : (toNumber(qty, 1) || 1);

@@ -3139,7 +3139,7 @@ watch(() => [route.name, route.params.docNo], async ([name]) => {
 }
 
 .product-entry-hint.warning {
-  color: var(--p-orange-600);
+  color: var(--p-blue-600);
   font-weight: 700;
 }
 
@@ -3390,7 +3390,7 @@ watch(() => [route.name, route.params.docNo], async ([name]) => {
 }
 
 .item-warning {
-  color: var(--p-orange-600);
+  color: var(--p-blue-600);
   font-size: 0.82rem;
   font-weight: 600;
 }
@@ -3409,7 +3409,7 @@ watch(() => [route.name, route.params.docNo], async ([name]) => {
 }
 
 .pending-qty {
-  color: var(--p-orange-600);
+  color: var(--p-blue-600);
   font-weight: 700;
 }
 

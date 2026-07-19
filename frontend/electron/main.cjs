@@ -7,7 +7,7 @@ const { registerAutoUpdater } = require('./autoUpdater.cjs');
 
 const isDev = !!process.env.ELECTRON_START_URL;
 let mainWindow = null;
-const desktopIconPath = path.join(__dirname, '..', 'public', 'santipab.png');
+const desktopIconPath = path.join(__dirname, '..', 'public', 'applogo.png');
 
 function embeddedUpdateToken() {
   try {
@@ -80,7 +80,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 720,
     icon: desktopIconPath,
-    title: 'santiparbpos',
+    title: 'NextStep POS',
     backgroundColor: '#f8fafc',
     show: false,
     webPreferences: {

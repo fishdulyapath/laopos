@@ -802,7 +802,7 @@ function resetImagePlaceholder(event) {
 
 .chip-warn {
   font-size: 0.75rem;
-  color: #f59e0b;
+  color: #0284c7;
 }
 
 .unit-chip.active .chip-warn {
@@ -857,14 +857,14 @@ function resetImagePlaceholder(event) {
 }
 
 .promotion-section {
-  background: linear-gradient(180deg, #fff7ed, #fffbeb);
-  border: 1px solid #fcd34d;
+  background: linear-gradient(180deg, #eff6ff, #f0f9ff);
+  border: 1px solid #7dd3fc;
   border-radius: 12px;
   padding: 0.75rem 0.875rem;
 }
 
 .promotion-icon {
-  color: #d97706;
+  color: #0369a1;
   margin-right: 0.35rem;
 }
 
@@ -897,7 +897,7 @@ function resetImagePlaceholder(event) {
 .promotion-price-cell {
   text-align: right;
   font-weight: 600;
-  color: #b45309;
+  color: #0369a1;
 }
 
 .discount-section {

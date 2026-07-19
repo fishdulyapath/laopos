@@ -1,5 +1,32 @@
 const { asNumber, asText, calcAfterDiscountSml, smlRound } = require('./smlMoney');
 
+const LAK_ALIASES = new Set(['LAK', 'KIP', 'KIPP', 'KIP2', 'LAO']);
+const THB_ALIASES = new Set(['THB', 'BTH', 'TH']);
+
+function normalizeCurrencyCode(value, fallback = '') {
+  const code = asText(value || fallback).trim().toUpperCase();
+  if (LAK_ALIASES.has(code)) return 'LAK';
+  if (THB_ALIASES.has(code)) return 'THB';
+  return code;
+}
+
+function homeCurrencyCode(options = {}) {
+  return normalizeCurrencyCode(options.home_currency, 'LAK') || 'LAK';
+}
+
+function roundLakChange(value, step = 500) {
+  const amount = Math.max(0, asNumber(value));
+  const unit = Math.max(1, asNumber(step, 500));
+  return Math.floor((amount + 1e-8) / unit) * unit;
+}
+
+function convertCurrencyToHome(amount, exchangeRate, options = {}, currencyCode = '') {
+  const code = normalizeCurrencyCode(currencyCode, homeCurrencyCode(options));
+  const value = asNumber(amount);
+  if (!code || code === homeCurrencyCode(options)) return value;
+  return value * (asNumber(exchangeRate, 1) || 1);
+}
+
 function calculateSaleLineAmount(item, options = {}) {
   const qty = smlRound(asNumber(item?.qty), options.item_qty_decimal ?? 2, options.round_type ?? 0);
   const price = smlRound(asNumber(item?.price), options.item_price_decimal ?? 2, options.round_type ?? 0);
@@ -25,8 +52,9 @@ function calculateSaleLineAmount(item, options = {}) {
 }
 
 function isForeignCurrencyContext(options = {}) {
-  const code = asText(options.currency_code).toUpperCase();
-  return !!code && code !== 'THB';
+  const homeCode = homeCurrencyCode(options);
+  const code = normalizeCurrencyCode(options.currency_code, homeCode);
+  return !!code && code !== homeCode;
 }
 
 function calculateSaleLineCurrencyAmount(item, options = {}) {
@@ -270,4 +298,9 @@ module.exports = {
   calculateSaleLineAmount,
   calculateSaleTotalsFromBuckets,
   prepareSaleItemAmounts,
+  normalizeCurrencyCode,
+  homeCurrencyCode,
+  isForeignCurrencyContext,
+  roundLakChange,
+  convertCurrencyToHome,
 };

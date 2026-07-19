@@ -211,9 +211,9 @@ function toggleMenu(event) {
       <button class="hamburger" :aria-label="t('common.menu')" @click="emit('menu-click')">
         <i class="pi pi-bars" />
       </button>
-      <img src="@/assets/santipab.png" class="topbar-logo" alt="Santipab Logo" />
+      <img src="@/assets/applogo.png" class="topbar-logo" alt="NextStep logo" />
       <span class="topbar-brand">
-        <span>ສັນຕິພາບ</span>
+        <span>NextStep</span>
         <strong>POS</strong>
       </span>
     </div>
@@ -303,8 +303,8 @@ function toggleMenu(event) {
   justify-content: space-between;
   padding: 0 1rem;
   height: 60px;
-  background: linear-gradient(90deg, #fffdf8 0%, #fff7ed 54%, #ffedd5 100%);
-  border-bottom: 1px solid #fed7aa;
+  background: linear-gradient(90deg, #f8fbff 0%, #eff6ff 54%, #dbeafe 100%);
+  border-bottom: 1px solid #bae6fd;
   box-shadow: 0 2px 14px rgba(249, 115, 22, 0.1);
   position: sticky;
   top: 0;
@@ -322,11 +322,11 @@ function toggleMenu(event) {
   display: flex;
   width: 2rem;
   height: 2rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   background: #ffffff;
   cursor: pointer;
   font-size: 1.1em;
-  color: #c2410c;
+  color: #0369a1;
   border-radius: 6px;
   align-items: center;
   justify-content: center;
@@ -334,17 +334,17 @@ function toggleMenu(event) {
 }
 
 .hamburger:hover {
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .topbar-icon-btn {
   display: inline-flex;
   width: 2rem;
   height: 2rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 6px;
   background: #ffffff;
-  color: #9a3412;
+  color: #075985;
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -352,7 +352,7 @@ function toggleMenu(event) {
 }
 
 .topbar-icon-btn:hover {
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .topbar-icon-btn:disabled {
@@ -387,7 +387,7 @@ function toggleMenu(event) {
 }
 
 .topbar-brand strong {
-  color: #ea580c;
+  color: #0284c7;
   font: inherit;
 }
 
@@ -398,7 +398,7 @@ function toggleMenu(event) {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   color: #ffffff;
   font-size: 1.05em;
   font-weight: 900;
@@ -418,7 +418,7 @@ function toggleMenu(event) {
   gap: 0.18rem;
   min-width: 0;
   padding: 0.16rem;
-  /* border: 1px solid #fed7aa;
+  /* border: 1px solid #bae6fd;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.78); */
 }
@@ -429,7 +429,7 @@ function toggleMenu(event) {
   align-items: center;
   justify-content: center;
   gap: 0.28rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 6px;
   background: #ffffff;
   color: #1f2937;
@@ -442,14 +442,14 @@ function toggleMenu(event) {
 }
 
 .sale-layout-controls button:hover {
-  border-color: #fb923c;
-  background: #fff7ed;
-  color: #ea580c;
+  border-color: #38bdf8;
+  background: #eff6ff;
+  color: #0284c7;
 }
 
 .sale-layout-controls .layout-scale-button {
   min-width: 3.45rem;
-  color: #ea580c;
+  color: #0284c7;
   font-variant-numeric: tabular-nums;
 }
 
@@ -458,25 +458,25 @@ function toggleMenu(event) {
 }
 
 .pos-tag {
-  border: 1px solid #fed7aa;
-  background: #fff7ed;
-  color: #ea580c;
+  border: 1px solid #bae6fd;
+  background: #eff6ff;
+  color: #0284c7;
   font-weight: 900;
 }
 
 .topbar-language :deep(.p-select) {
-  border-color: #fed7aa;
+  border-color: #bae6fd;
   background: rgba(255, 255, 255, 0.86);
   color: #3f2a1d;
 }
 
 .topbar-language :deep(.p-select:not(.p-disabled).p-focus) {
-  border-color: #fb923c;
+  border-color: #38bdf8;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
 }
 
 .topbar-username {
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.82);
   color: #3f2a1d;

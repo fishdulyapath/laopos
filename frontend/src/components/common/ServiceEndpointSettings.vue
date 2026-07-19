@@ -181,11 +181,11 @@ async function testEndpoint() {
 .endpoint-button {
   width: 2.45rem;
   height: 2.45rem;
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .endpoint-button:hover {
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .endpoint-form {
@@ -199,22 +199,22 @@ async function testEndpoint() {
 }
 
 .field label {
-  color: #9a3412;
+  color: #075985;
   font-size: 0.875rem;
   font-weight: 800;
 }
 
 .field :deep(.p-inputtext) {
-  border-color: #fed7aa;
+  border-color: #bae6fd;
 }
 
 .field :deep(.p-inputtext:enabled:focus) {
-  border-color: #fb923c;
+  border-color: #38bdf8;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
 }
 
 .field-help {
-  color: #9a3412;
+  color: #075985;
   font-size: 0.78rem;
   font-weight: 650;
 }

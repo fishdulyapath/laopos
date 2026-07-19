@@ -984,7 +984,7 @@ router.get("/getpricepos", async (req, res) => {
     branch_code: strBranchCode = "",
     default_cust_code: strDefaultCustCode = "",
     doc_date: strDocDate = "",
-    currency_code: strCurrencyCode = "BTH",
+    currency_code: strCurrencyCode = "LAK",
   } = req.query;
   const resp = { success: false };
 

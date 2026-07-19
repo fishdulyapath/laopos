@@ -572,7 +572,7 @@ function confirmZeroPrice() {
 }
 
 .price-table tr.row-changed td {
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .col-name {
@@ -667,7 +667,7 @@ function confirmZeroPrice() {
 }
 
 .new-price-changed {
-  color: #ea580c;
+  color: #0284c7;
   font-weight: 700;
 }
 .price-normal {
@@ -701,8 +701,8 @@ function confirmZeroPrice() {
 }
 
 .price-card.card-changed {
-  background: #fff7ed;
-  border-color: #fed7aa;
+  background: #eff6ff;
+  border-color: #bae6fd;
 }
 .price-card.card-error {
   background: #fef2f2;
@@ -928,8 +928,8 @@ function confirmZeroPrice() {
 }
 
 .discount-tag {
-  background: #fef3c7;
-  color: #b45309;
+  background: #e0f2fe;
+  color: #0369a1;
   margin-left: 5px;
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
@@ -1015,7 +1015,7 @@ function confirmZeroPrice() {
 
 .zero-price-dialog-icon {
   font-size: 2.5rem;
-  color: #f59e0b;
+  color: #0284c7;
 }
 
 .error-dialog-msg {

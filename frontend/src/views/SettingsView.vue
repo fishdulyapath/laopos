@@ -112,6 +112,7 @@ function posOptionLabel(pos) {
 }
 
 const customerDisplayCurrencyOptions = computed(() => {
+  const homeCode = String(paymentMasters.value.home_currency || DEFAULT_CUSTOMER_DISPLAY_CURRENCY_CODE).trim().toUpperCase()
   const summaryCodes = normalizeSummaryCurrencyCodes(paymentMasters.value.summary_currency_codes);
   const codes = summaryCodes.includes(DEFAULT_CUSTOMER_DISPLAY_CURRENCY_CODE)
     ? summaryCodes
@@ -127,7 +128,7 @@ const customerDisplayCurrencyOptions = computed(() => {
     const name = String(currency?.name_1 || currency?.name || code).trim() || code;
     const ratio = String(currency?.name_2 || "").trim();
     return {
-      label: ratio && code !== "THB" ? `${code} - ${name} (${ratio})` : `${code} - ${name}`,
+      label: ratio && code !== homeCode ? `${code} - ${name} (${ratio})` : `${code} - ${name}`,
       value: code,
       code,
       name,
@@ -234,7 +235,9 @@ function currencyByCode(code) {
 
 function customerDisplayCurrencyState() {
   const currency = currencyByCode(form.value.customer_display_currency_code || DEFAULT_CUSTOMER_DISPLAY_CURRENCY_CODE);
-  const rate = Number(String(currency?.name_2 || "1").replace(/,/g, ""));
+  const homeCode = String(paymentMasters.value.home_currency || DEFAULT_CUSTOMER_DISPLAY_CURRENCY_CODE).trim().toUpperCase();
+  const isHome = String(currency?.code || "").trim().toUpperCase() === homeCode;
+  const rate = isHome ? 1 : Number(String(currency?.name_2 || "1").replace(/,/g, ""));
   return {
     code: currency?.code || DEFAULT_CUSTOMER_DISPLAY_CURRENCY_CODE,
     label: currency?.name || currency?.code || "ກີບ",
@@ -249,6 +252,7 @@ async function loadPaymentMastersForSettings() {
     paymentMasters.value = {
       currencies: Array.isArray(data.currencies) ? data.currencies : [],
       summary_currency_codes: data.summary_currency_codes || data.options?.summary_currency_codes || [],
+      home_currency: data.options?.home_currency || DEFAULT_CUSTOMER_DISPLAY_CURRENCY_CODE,
     };
     const selectedCode = String(form.value.customer_display_currency_code || "")
       .trim()
@@ -1097,9 +1101,9 @@ onMounted(async () => {
   font-weight: 700;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #ea580c;
+  background: #eff6ff;
+  border: 1px solid #bae6fd;
+  color: #0284c7;
 }
 
 .electron-notice {
@@ -1141,13 +1145,13 @@ onMounted(async () => {
   color: #374151;
   margin: 0 0 1rem 0;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #ffedd5;
+  border-bottom: 1px solid #dbeafe;
 }
 
 .settings-subsection {
   margin-top: 1.15rem;
   padding-top: 1rem;
-  border-top: 1px solid #ffedd5;
+  border-top: 1px solid #dbeafe;
 }
 
 .subsection-title {
@@ -1161,7 +1165,7 @@ onMounted(async () => {
 }
 
 .subsection-title i {
-  color: #f97316;
+  color: #0ea5e9;
 }
 
 .field {
@@ -1190,7 +1194,7 @@ onMounted(async () => {
 }
 
 .field-help {
-  color: #9a3412;
+  color: #075985;
   font-size: 0.78rem;
   font-weight: 600;
 }
@@ -1225,7 +1229,7 @@ onMounted(async () => {
 }
 
 .drawer-scan-item.selected {
-  border-color: #fb923c;
+  border-color: #38bdf8;
   box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.18);
 }
 
@@ -1268,25 +1272,25 @@ onMounted(async () => {
 
 .customer-display-config .section-title {
   padding-bottom: 0.8rem;
-  border-bottom: 1px solid #fed7aa;
-  color: #c2410c;
+  border-bottom: 1px solid #bae6fd;
+  color: #0369a1;
   font-size: 1.1rem;
   font-weight: 900;
 }
 
 .customer-display-config .section-title i {
-  color: #f97316;
+  color: #0ea5e9;
 }
 
 .customer-display-config .field {
   padding: 0.85rem;
-  border: 1px solid #ffedd5;
+  border: 1px solid #dbeafe;
   border-radius: 12px;
   background: rgba(255, 250, 245, 0.88);
 }
 
 .customer-display-config .field label {
-  color: #9a3412;
+  color: #075985;
   font-weight: 850;
 }
 
@@ -1297,7 +1301,7 @@ onMounted(async () => {
 .customer-display-config :deep(.p-select),
 .customer-display-config :deep(.p-inputtext),
 .customer-display-config :deep(.p-textarea) {
-  border-color: #fdba74;
+  border-color: #7dd3fc;
   border-radius: 10px;
   background: #fff;
   color: #1f2937;
@@ -1307,13 +1311,13 @@ onMounted(async () => {
 .customer-display-config :deep(.p-select:not(.p-disabled):hover),
 .customer-display-config :deep(.p-inputtext:hover),
 .customer-display-config :deep(.p-textarea:hover) {
-  border-color: #fb923c;
+  border-color: #38bdf8;
 }
 
 .customer-display-config :deep(.p-select.p-focus),
 .customer-display-config :deep(.p-inputtext:enabled:focus),
 .customer-display-config :deep(.p-textarea:enabled:focus) {
-  border-color: #f97316;
+  border-color: #0ea5e9;
   box-shadow: 0 0 0 0.2rem rgba(249, 115, 22, 0.14);
 }
 
@@ -1342,7 +1346,7 @@ onMounted(async () => {
 }
 
 .media-manager-head small {
-  color: #9a3412;
+  color: #075985;
   font-size: 0.78rem;
   font-weight: 750;
 }
@@ -1359,10 +1363,10 @@ onMounted(async () => {
   gap: 0.5rem;
   min-height: 5rem;
   padding: 1rem;
-  border: 1px dashed #fdba74;
+  border: 1px dashed #7dd3fc;
   border-radius: 12px;
-  background: #fff7ed;
-  color: #9a3412;
+  background: #eff6ff;
+  color: #075985;
   font-weight: 800;
   text-align: center;
 }
@@ -1387,7 +1391,7 @@ onMounted(async () => {
   gap: 0.75rem;
   align-items: center;
   padding: 0.65rem;
-  border: 1px solid #ffedd5;
+  border: 1px solid #dbeafe;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.82);
 }

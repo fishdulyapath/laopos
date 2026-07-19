@@ -5,7 +5,7 @@ let displayWindow = null;
 let latestState = { mode: 'idle', items: [], totals: {}, displayLanguage: 'th', qr: null, updatedAt: null };
 let mainWindowProvider = () => null;
 let desktopConfigProvider = () => ({ apiBaseUrl: '' });
-const desktopIconPath = path.join(__dirname, '..', 'public', 'santipab.png');
+const desktopIconPath = path.join(__dirname, '..', 'public', 'applogo.png');
 
 function customerDisplayUrl() {
   if (process.env.ELECTRON_START_URL) {

@@ -1381,7 +1381,7 @@ async function saveTigerPending() {
 
 .tiger-mock-banner {
   width: 100%;
-  background: #fff7e6;
+  background: #eff6ff;
   color: #ad6800;
   border: 1px dashed #ffa940;
   border-radius: 6px;

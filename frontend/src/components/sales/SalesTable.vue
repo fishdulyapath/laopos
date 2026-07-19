@@ -239,8 +239,8 @@ function editBlockReason(row) {
 }
 
 .sale-kind-badge.credit {
-  background: #fef3c7;
-  color: #92400e;
+  background: #e0f2fe;
+  color: #075985;
 }
 
 .tiger-pending-badge {
@@ -249,8 +249,8 @@ function editBlockReason(row) {
   gap: 0.25rem;
   padding: 0.2rem 0.45rem;
   border-radius: 999px;
-  background: #fff7ed;
-  color: #c2410c;
+  background: #eff6ff;
+  color: #0369a1;
   font-size: 0.72rem;
   font-weight: 700;
   white-space: nowrap;

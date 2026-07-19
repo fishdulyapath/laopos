@@ -75,8 +75,8 @@ const creditTotal = computed(() =>
 }
 
 .summary-chip.credit {
-  background: #fef3c7;
-  color: #92400e;
+  background: #e0f2fe;
+  color: #075985;
 }
 
 .summary-amount {

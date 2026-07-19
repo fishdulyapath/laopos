@@ -1,2 +1,2 @@
-# Santiparb_POS
-Santiparb's in-house POS Terminal System
+# NextStep POS
+NextStep point-of-sale terminal system.

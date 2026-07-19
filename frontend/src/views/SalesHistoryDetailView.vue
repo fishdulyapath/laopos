@@ -37,6 +37,14 @@ const whtHeaders = computed(() => detail.value?.wht_headers || [])
 const glDetail = computed(() => detail.value?.gl_detail || [])
 const promotions = computed(() => detail.value?.promotions || detail.value?.promotion_detail || [])
 const shipment = computed(() => detail.value?.shipment || {})
+const homeCurrencyCode = 'LAK'
+
+function normalizeCurrencyCode(value) {
+  const code = String(value || '').trim().toUpperCase()
+  if (['LAK', 'KIP', 'KIPP', 'KIP2', 'LAO'].includes(code)) return 'LAK'
+  if (['THB', 'BTH', 'TH'].includes(code)) return 'THB'
+  return code
+}
 
 function moneyValue(...values) {
   for (const value of values) {
@@ -104,7 +112,7 @@ const documentFieldRows = computed(() => [
 ])
 
 const footerInfoRows = computed(() => [
-  { label: 'รหัสสกุลเงิน', value: header.value.currency_code || 'THB' },
+  { label: 'รหัสสกุลเงิน', value: header.value.currency_code || homeCurrencyCode },
   { label: 'อัตราแลกเปลี่ยน', value: formatNumber(header.value.exchange_rate || 1) },
   { label: 'มูลค่าสุทธิ (สกุลเงิน)', value: formatCurrency(header.value.total_amount_2 || header.value.total_net_amount || header.value.total_amount || 0) },
   { label: 'เครดิต (วัน)', value: formatNumber(header.value.credit_day || 0) },
@@ -113,7 +121,7 @@ const footerInfoRows = computed(() => [
 ])
 
 const currencyFooterRows = computed(() => [
-  { label: 'รหัสสกุลเงิน', value: header.value.currency_code || 'THB' },
+  { label: 'รหัสสกุลเงิน', value: header.value.currency_code || homeCurrencyCode },
   { label: 'อัตราแลกเปลี่ยน', value: formatNumber(header.value.exchange_rate || 1) },
 ])
 
@@ -130,8 +138,8 @@ const creditFooterRows = computed(() => [
 ])
 
 const showDocumentCurrencySummary = computed(() => {
-  const code = String(header.value.currency_code || 'THB').trim().toUpperCase()
-  return code && code !== 'THB'
+  const code = normalizeCurrencyCode(header.value.currency_code || homeCurrencyCode)
+  return code && code !== homeCurrencyCode
 })
 
 const documentCurrencySummaryRows = computed(() => [
@@ -475,7 +483,7 @@ function itemCurrencyAmount(row, key) {
   const code = String(row?.currency_code || header.value.currency_code || '').trim()
   const normalizedCode = code.toUpperCase()
   const value = Number(row?.[key] || 0)
-  if (!code || normalizedCode === 'THB' || !value) return ''
+  if (!code || normalizeCurrencyCode(normalizedCode) === homeCurrencyCode || !value) return ''
   return `${formatNumber(value)} ${code}`
 }
 
@@ -1332,11 +1340,11 @@ p {
 }
 
 .total-line.negative b {
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .total-line.accent b {
-  color: #ea580c;
+  color: #0284c7;
 }
 
 .total-line.strong {
@@ -1576,11 +1584,11 @@ p {
 }
 
 .cash-summary > div.accent {
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .cash-summary > div.accent strong {
-  color: #ea580c;
+  color: #0284c7;
 }
 
 .payment-groups {
@@ -1638,7 +1646,7 @@ p {
 }
 
 .payment-group-card.negative .payment-group-total b {
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .payment-row-list {
@@ -1782,8 +1790,8 @@ p {
 }
 
 .gl-summary article.warn {
-  background: #fff7ed;
-  border-color: #fed7aa;
+  background: #eff6ff;
+  border-color: #bae6fd;
 }
 
 .mini-summary-strip span,
@@ -1803,7 +1811,7 @@ p {
 }
 
 .gl-summary article.warn strong {
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .info-grid.labeled {
@@ -2055,7 +2063,7 @@ p {
   --sale-border-strong: #c6d4ea;
   --sale-text: #102044;
   --sale-muted: #64748b;
-  --sale-primary: #E87E2C;
+  --sale-primary: #0284c7;
   --sale-primary-2: #2563eb;
   --sale-primary-soft: #eef4ff;
   --sale-primary-border: #c7d2fe;

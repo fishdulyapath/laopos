@@ -1294,9 +1294,9 @@ function confirmZeroPrice() {
 .validation-panel {
   display: grid;
   gap: 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--p-orange-500) 35%, var(--p-surface-border));
+  border: 1px solid color-mix(in srgb, var(--p-blue-500) 35%, var(--p-surface-border));
   border-radius: 8px;
-  background: color-mix(in srgb, var(--p-orange-500) 7%, var(--p-surface-0));
+  background: color-mix(in srgb, var(--p-blue-500) 7%, var(--p-surface-0));
   padding: 0.65rem 0.75rem;
   margin-bottom: 0.75rem;
 }
@@ -1305,7 +1305,7 @@ function confirmZeroPrice() {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  color: var(--p-orange-600);
+  color: var(--p-blue-600);
   font-weight: 700;
 }
 
@@ -1409,7 +1409,7 @@ function confirmZeroPrice() {
 }
 
 .zero-dialog i {
-  color: var(--p-orange-500);
+  color: var(--p-blue-500);
   font-size: 2rem;
 }
 

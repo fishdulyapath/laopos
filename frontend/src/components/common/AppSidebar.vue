@@ -54,8 +54,8 @@ function logout() {
 <style scoped>
 .sidebar-nav {
   width: 264px;
-  background: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
-  border-right: 1px solid #fed7aa;
+  background: linear-gradient(180deg, #f8fbff 0%, #eff6ff 100%);
+  border-right: 1px solid #bae6fd;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -79,7 +79,7 @@ function logout() {
   border: 1px solid transparent;
   border-radius: 8px;
   margin: 0.125rem 0;
-  color: #7c5740;
+  color: #475569;
   transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
   font-size: 0.9375rem;
   min-height: 42px;
@@ -89,11 +89,11 @@ function logout() {
   width: 1.25rem;
   text-align: center;
   flex-shrink: 0;
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .sidebar-item:hover {
-  border-color: #fed7aa;
+  border-color: #bae6fd;
   background: #ffffff;
   color: #1f2937;
   transform: translateX(2px);
@@ -101,7 +101,7 @@ function logout() {
 
 .sidebar-item.active {
   border-color: transparent;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   color: #ffffff;
   font-weight: 900;
   box-shadow: 0 10px 20px rgba(249, 115, 22, 0.22);
@@ -113,7 +113,7 @@ function logout() {
 
 .sidebar-footer {
   padding-top: 0.625rem;
-  border-top: 1px solid #fed7aa;
+  border-top: 1px solid #bae6fd;
 }
 
 .sidebar-item.logout {

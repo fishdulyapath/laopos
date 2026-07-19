@@ -311,7 +311,7 @@ body { margin: 0; padding: 0; background: #fff; }
 }
 
 .val-discount { color: #c00; }
-.item-discount-sub { font-size: 0.72rem; color: #b45309; margin-top: 0.15rem; }
+.item-discount-sub { font-size: 0.72rem; color: #0369a1; margin-top: 0.15rem; }
 
 .total-net {
   font-weight: bold;

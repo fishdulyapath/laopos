@@ -257,7 +257,7 @@ onMounted(loadBaskets)
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
   background: rgba(234, 88, 12, 0.12);
-  color: #9a3412;
+  color: #075985;
   font-size: 0.75rem;
   font-weight: 700;
   overflow: hidden;

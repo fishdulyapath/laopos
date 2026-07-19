@@ -8,8 +8,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-const sourcePng = path.join(rootDir, 'public', 'santipab.png');
-const targetIco = path.join(rootDir, 'build', 'santipab.ico');
+const sourcePng = path.join(rootDir, 'public', 'applogo.png');
+const targetIco = path.join(rootDir, 'build', 'applogo.ico');
 const iconSizes = [256, 128, 64, 48, 32, 24, 16];
 
 async function main() {

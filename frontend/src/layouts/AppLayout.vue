@@ -97,7 +97,7 @@ function logout() {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .app-body {
@@ -141,7 +141,7 @@ function logout() {
 .drawer-title {
   font-size: 1.05em;
   font-weight: 900;
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .drawer-user-card {
@@ -149,9 +149,9 @@ function logout() {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
-  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
 }
 
 .drawer-user-row {
@@ -162,7 +162,7 @@ function logout() {
 
 .drawer-user-icon {
   font-size: 1.1em;
-  color: #f15a00;
+  color: #0284c7;
   width: 1.25rem;
   text-align: center;
   flex-shrink: 0;
@@ -181,7 +181,7 @@ function logout() {
 
 .drawer-user-code {
   font-size: 0.75em;
-  color: #7c5740;
+  color: #475569;
 }
 
 .drawer-pos-row {
@@ -192,7 +192,7 @@ function logout() {
 
 .drawer-pos-icon {
   font-size: 0.9em;
-  color: #c2410c;
+  color: #0369a1;
   width: 1.25rem;
   text-align: center;
   flex-shrink: 0;
@@ -200,7 +200,7 @@ function logout() {
 
 .drawer-pos-label {
   font-size: 0.8em;
-  color: #7c5740;
+  color: #475569;
 }
 
 .drawer-pos-value {
@@ -211,9 +211,9 @@ function logout() {
 
 .drawer-change-pos {
   margin-left: auto;
-  border: 1px solid #fdba74;
-  background: #fff7ed;
-  color: #c2410c;
+  border: 1px solid #7dd3fc;
+  background: #eff6ff;
+  color: #0369a1;
   font-size: 0.75em;
   font-family: inherit;
   padding: 0.2rem 0.625rem;
@@ -224,8 +224,8 @@ function logout() {
 }
 
 .drawer-change-pos:hover {
-  border-color: #fb923c;
-  background: #ffedd5;
+  border-color: #38bdf8;
+  background: #dbeafe;
 }
 
 .drawer-nav {
@@ -247,21 +247,21 @@ function logout() {
   cursor: pointer;
   font-family: inherit;
   font-size: 0.9em;
-  color: #7c5740;
+  color: #475569;
   text-align: left;
   transition: background 0.12s;
   -webkit-tap-highlight-color: transparent;
 }
 
 .drawer-nav-item:hover {
-  border-color: #fed7aa;
-  background: #fff7ed;
+  border-color: #bae6fd;
+  background: #eff6ff;
   color: #1f2937;
 }
 
 .drawer-nav-item.active {
   border-color: transparent;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   color: #ffffff;
   font-weight: 900;
   box-shadow: 0 10px 20px rgba(249, 115, 22, 0.22);
@@ -276,7 +276,7 @@ function logout() {
 
 .drawer-divider {
   height: 1px;
-  background: #fed7aa;
+  background: #bae6fd;
   margin: 0.5rem 0;
 }
 
@@ -297,7 +297,7 @@ function logout() {
 
 .drawer-powered-by {
   font-size: 0.7em;
-  color: #9a3412;
+  color: #075985;
   opacity: 0.6;
 }
 </style>

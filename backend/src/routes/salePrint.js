@@ -256,16 +256,19 @@ async function loadSalePromotionRows(docNo) {
         c.bth,
         c.kip,
         c.usd,
-        ((COALESCE(price,0) * c.kip_rate) / 1000) * 1000 AS kip_price,
-        FLOOR(ABS(COALESCE(sum_amount,0)) * c.kip_rate) AS kip_discount,
-        ((COALESCE(sum_amount,0) * c.kip_rate) / 1000) * 1000 AS kip_amount
+        COALESCE(price,0) * c.kip_rate AS kip_price,
+        ABS(COALESCE(sum_amount,0)) * c.kip_rate AS kip_discount,
+        COALESCE(sum_amount,0) * c.kip_rate AS kip_amount
      FROM ic_trans_detail_promotion
      CROSS JOIN (
         SELECT
-          (SELECT name_2 FROM erp_currency WHERE code = 'BTH' LIMIT 1) AS bth,
+          (SELECT name_2 FROM erp_currency WHERE code IN ('THB','BTH') ORDER BY CASE WHEN code='THB' THEN 0 ELSE 1 END LIMIT 1) AS bth,
           (SELECT name_2 FROM erp_currency WHERE code = 'KIP' LIMIT 1) AS kip,
           (SELECT name_2 FROM erp_currency WHERE code = 'USD' LIMIT 1) AS usd,
-          (SELECT name_2 FROM erp_currency WHERE code = 'KIP' LIMIT 1)::numeric AS kip_rate
+          (SELECT CASE
+             WHEN COALESCE(NULLIF(UPPER(TRIM(home_currency)), ''), 'LAK') IN ('LAK','KIP','KIPP','KIP2','LAO') THEN 1
+             ELSE COALESCE((SELECT exchange_rate_present FROM erp_currency WHERE code IN ('LAK','KIP') ORDER BY CASE WHEN code='LAK' THEN 0 ELSE 1 END LIMIT 1), 1)
+           END FROM erp_option LIMIT 1) AS kip_rate
      ) c
      WHERE trans_flag = 44 AND doc_no = $1
      ORDER BY line_number, promotion_code`,
@@ -297,7 +300,7 @@ async function loadSaleCampaignRows(docNo) {
      JOIN pos_slip_campaign pc ON pc.code = tc.campaign_code
      CROSS JOIN (
         SELECT
-          (SELECT name_2 FROM erp_currency WHERE code = 'BTH' LIMIT 1) AS bth,
+          (SELECT name_2 FROM erp_currency WHERE code IN ('THB','BTH') ORDER BY CASE WHEN code='THB' THEN 0 ELSE 1 END LIMIT 1) AS bth,
           (SELECT name_2 FROM erp_currency WHERE code = 'KIP' LIMIT 1) AS kip,
           (SELECT name_2 FROM erp_currency WHERE code = 'USD' LIMIT 1) AS usd
      ) c
@@ -393,7 +396,10 @@ async function loadSaleDocument(docNo) {
        LEFT JOIN ar_customer_detail cd ON cd.ar_code = t.cust_code
        LEFT JOIN erp_user u ON UPPER(u.code) = UPPER(t.sale_code)
        CROSS JOIN (
-          SELECT (SELECT name_2 FROM erp_currency WHERE code = 'KIP' LIMIT 1)::numeric AS kip_rate
+          SELECT (SELECT CASE
+             WHEN COALESCE(NULLIF(UPPER(TRIM(home_currency)), ''), 'LAK') IN ('LAK','KIP','KIPP','KIP2','LAO') THEN 1
+             ELSE COALESCE((SELECT exchange_rate_present FROM erp_currency WHERE code IN ('LAK','KIP') ORDER BY CASE WHEN code='LAK' THEN 0 ELSE 1 END LIMIT 1), 1)
+           END FROM erp_option LIMIT 1) AS kip_rate
        ) c
        WHERE t.trans_flag = 44 AND t.doc_no = $1
        LIMIT 1`,
@@ -406,17 +412,20 @@ async function loadSaleDocument(docNo) {
           c.bth,
           c.kip,
           c.usd,
-          ((COALESCE(d.price,0) * c.kip_rate) / 1000) * 1000 AS kip_price,
-          FLOOR(((COALESCE(d.qty,0) * COALESCE(d.price,0)) - COALESCE(d.sum_amount,0)) * c.kip_rate) AS kip_discount,
-          ((COALESCE(d.sum_amount,0) * c.kip_rate) / 1000) * 1000 AS kip_amount
+          COALESCE(d.price,0) * c.kip_rate AS kip_price,
+          ((COALESCE(d.qty,0) * COALESCE(d.price,0)) - COALESCE(d.sum_amount,0)) * c.kip_rate AS kip_discount,
+          COALESCE(d.sum_amount,0) * c.kip_rate AS kip_amount
        FROM ic_trans_detail d
        LEFT JOIN ic_unit u ON u.code = d.unit_code
        CROSS JOIN (
           SELECT
-            (SELECT name_2 FROM erp_currency WHERE code = 'BTH' LIMIT 1) AS bth,
+            (SELECT name_2 FROM erp_currency WHERE code IN ('THB','BTH') ORDER BY CASE WHEN code='THB' THEN 0 ELSE 1 END LIMIT 1) AS bth,
             (SELECT name_2 FROM erp_currency WHERE code = 'KIP' LIMIT 1) AS kip,
             (SELECT name_2 FROM erp_currency WHERE code = 'USD' LIMIT 1) AS usd,
-            (SELECT name_2 FROM erp_currency WHERE code = 'KIP' LIMIT 1)::numeric AS kip_rate
+            (SELECT CASE
+               WHEN COALESCE(NULLIF(UPPER(TRIM(home_currency)), ''), 'LAK') IN ('LAK','KIP','KIPP','KIP2','LAO') THEN 1
+               ELSE COALESCE((SELECT exchange_rate_present FROM erp_currency WHERE code IN ('LAK','KIP') ORDER BY CASE WHEN code='LAK' THEN 0 ELSE 1 END LIMIT 1), 1)
+             END FROM erp_option LIMIT 1) AS kip_rate
        ) c
        WHERE d.trans_flag = 44 AND d.doc_no = $1
        ORDER BY d.line_number`,
@@ -670,6 +679,7 @@ function buildSlipTemplatePreviewData(data = {}) {
       __rowNumber: row.__rowNumber || index + 1,
       item_code: row.item_code || row.code || row.ic_code || '',
       item_name: row.item_name || row.name_1 || row.item_name_1 || '',
+      shelf_code: row.shelf_code || '',
       qty: row.qty || row.quantity || 0,
       unit_code: row.unit_code || row.unit_name || '',
       price: row.price || row.price_2 || 0,
@@ -1063,6 +1073,20 @@ function renderPosSlipAds(layout = {}) {
   }).join('');
 }
 
+function posSlipSalespersonName(header = {}) {
+  return header.sale_name || header.printbyname || header.print_by_name || header.sale_code || header.creator_code || '';
+}
+
+function posSlipItemDisplayName(row = {}, index = 0) {
+  const itemName = String(row.item_name || row.name_1 || row.item_name_1 || '').trim();
+  const itemCode = String(row.item_code || row.code || row.ic_code || '').trim();
+  const barcode = String(row.barcode || '').trim();
+  const shelfCode = String(row.shelf_code || '').trim();
+  const itemLabel = shouldShowPosSlipItemCode(row) ? `${barcode || itemCode} ${itemName}` : itemName;
+  const itemLabelWithShelf = shelfCode ? `${itemLabel} (${shelfCode})` : itemLabel;
+  return `${index + 1}. ${itemLabelWithShelf}`.trim();
+}
+
 function renderPosSlipHtml({ data, layout, displayTexts = {} }) {
   const slip = buildPosSlipData(data, { copy: displayTexts.copy });
   const header = slip.header;
@@ -1073,7 +1097,7 @@ function renderPosSlipHtml({ data, layout, displayTexts = {} }) {
   const slipTitle = String(layout.title || '').trim();
   const logoUrl = layout.logo_url || '';
   const footerText = layout.footer_text || 'ຂອບໃຈທີ່ໃຊ້ບໍລິການ';
-  const printBy = header.printbyname || header.print_by_name || header.sale_name || header.sale_code || header.creator_code || '';
+  const printBy = posSlipSalespersonName(header);
   const deliveryInfo = posSlipDeliveryInfo(header, shipment);
   const deliveryBlock = isPosSlipDeliver(header, shipment) ? `
     <div class="delivery-block">
@@ -1083,11 +1107,7 @@ function renderPosSlipHtml({ data, layout, displayTexts = {} }) {
     </div>
   ` : '';
   const itemRows = slip.details.map((row, index) => {
-    const itemName = String(row.item_name || row.name_1 || row.item_name_1 || '').trim();
-    const itemCode = String(row.item_code || row.code || row.ic_code || '').trim();
-    const barcode = String(row.barcode || '').trim();
-    const itemLabel = shouldShowPosSlipItemCode(row) ? `${barcode || itemCode} ${itemName}` : itemName;
-    const displayName = `${index + 1} ${itemLabel}`.trim();
+    const displayName = posSlipItemDisplayName(row, index);
     const unitName = posSlipRowUnitName(row);
     const qtyText = formatSlipQty(posSlipRowQty(row));
     const priceText = formatSlipAmount(posSlipRowPrice(row));
@@ -1478,5 +1498,7 @@ router.get('/sale-print/thermal', async (req, res) => {
     return res.status(500).json({ success: false, msg: ex.message });
   }
 });
+
+router._test = { posSlipItemDisplayName, posSlipSalespersonName };
 
 module.exports = router;

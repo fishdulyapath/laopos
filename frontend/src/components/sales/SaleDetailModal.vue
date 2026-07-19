@@ -655,17 +655,17 @@ async function confirmDeleteImage() {
 
 .badge-tiger-pending {
   gap: 0.25rem;
-  background: #fff7ed;
-  color: #c2410c;
+  background: #eff6ff;
+  color: #0369a1;
 }
 
 .tiger-pending-box {
   display: grid;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .tiger-pending-row {
@@ -676,11 +676,11 @@ async function confirmDeleteImage() {
 }
 
 .tiger-pending-row span {
-  color: #9a3412;
+  color: #075985;
 }
 
 .tiger-pending-row strong {
-  color: #7c2d12;
+  color: #0c4a6e;
   word-break: break-all;
 }
 
@@ -890,7 +890,7 @@ async function confirmDeleteImage() {
   font-weight: 500;
 }
 
-.item-discount-sub { font-size: 0.72rem; color: #b45309; margin-top: 0.15rem; }
+.item-discount-sub { font-size: 0.72rem; color: #0369a1; margin-top: 0.15rem; }
 
 .promotion-detail-section {
   display: grid;

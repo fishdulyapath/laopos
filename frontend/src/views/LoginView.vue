@@ -12,7 +12,7 @@ import Button from 'primevue/button'
 import Message from 'primevue/message'
 import AppUpdateStatus from '@/components/common/AppUpdateStatus.vue'
 import { APP_NAME, APP_SUBTITLE } from '@/config/app'
-import santipabImg from '@/assets/santipab.png'
+import appLogoImg from '@/assets/applogo.png'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -47,8 +47,8 @@ async function handleLogin() {
     <template #header>
       <div class="login-header">
 
-        <Avatar :image="santipabImg" class="mr-2" size="xlarge" shape="circle" />
-        <h2 class="login-title">ສັນຕິພາບ <span class="login-logo">POS</span></h2>
+        <Avatar :image="appLogoImg" class="mr-2" size="xlarge" shape="circle" />
+        <h2 class="login-title">NextStep <span class="login-logo">POS</span></h2>
  
       </div>
     </template>
@@ -114,9 +114,9 @@ async function handleLogin() {
   overflow: hidden;
   width: 100%;
   max-width: 420px;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   box-shadow: 0 24px 54px rgba(249, 115, 22, 0.16);
 }
 
@@ -124,7 +124,7 @@ async function handleLogin() {
   content: "";
   display: block;
   height: 0.42rem;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
 }
 
 .login-header {
@@ -136,14 +136,14 @@ async function handleLogin() {
 }
 
 .login-header :deep(.p-avatar) {
-  border: 3px solid #ffedd5;
+  border: 3px solid #dbeafe;
   background: #ffffff;
   box-shadow: 0 10px 24px rgba(249, 115, 22, 0.18);
 }
 
 .login-logo {
   font-size: 2rem;
-  color: #f15a00;
+  color: #0284c7;
 }
 
 .login-title {
@@ -156,7 +156,7 @@ async function handleLogin() {
 .login-subtitle {
   margin: 0;
   font-size: 0.875rem;
-  color: #7c5740;
+  color: #475569;
 }
 
 .login-form {
@@ -187,7 +187,7 @@ async function handleLogin() {
 .field label {
   font-size: 0.875rem;
   font-weight: 800;
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .field :deep(.p-inputtext),
@@ -197,13 +197,13 @@ async function handleLogin() {
 }
 
 .field :deep(.p-inputtext) {
-  border-color: #fed7aa;
-  background: linear-gradient(180deg, #ffffff 0%, #fffdf8 100%);
+  border-color: #bae6fd;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   color: #1f2937;
 }
 
 .field :deep(.p-inputtext:enabled:focus) {
-  border-color: #fb923c;
+  border-color: #38bdf8;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
 }
 
@@ -215,12 +215,12 @@ async function handleLogin() {
 
 .field-checkbox label {
   font-size: 0.875rem;
-  color: #7c5740;
+  color: #475569;
   cursor: pointer;
 }
 
 .field-checkbox :deep(.p-checkbox-box) {
-  border-color: #fdba74;
+  border-color: #7dd3fc;
 }
 
 .field-checkbox :deep(.p-checkbox-checked .p-checkbox-box) {
@@ -231,14 +231,14 @@ async function handleLogin() {
 .login-form :deep(.p-button) {
   min-height: 3rem;
   border-color: transparent;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   color: #ffffff;
   font-weight: 900;
   box-shadow: 0 14px 28px rgba(249, 115, 22, 0.24);
 }
 
 .login-form :deep(.p-button:not(:disabled):hover) {
-  background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
   border-color: transparent;
 }
 

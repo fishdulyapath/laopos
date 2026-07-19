@@ -1,10 +1,11 @@
 {
-  "name": "santiparbpos-backend",
+  "name": "nextstep-pos-backend",
   "version": "1.0.0",
-  "description": "Express.js clone of Santiparb POS (Java/JAX-RS)",
+  "description": "Express.js backend for NextStep POS",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "test:lak-currency": "node scripts/lak-currency-regression.mjs",
     "dev": "nodemon src/index.js",
     "test:sale-item-policy": "node scripts/sale-item-policy-regression.mjs"
   },

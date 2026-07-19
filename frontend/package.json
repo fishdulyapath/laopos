@@ -51,7 +51,7 @@
   },
   "build": {
     "appId": "com.fishsoft.bizsuit",
-    "productName": "santiparbpos",
+    "productName": "NextStep POS",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -79,23 +79,23 @@
           ]
         }
       ],
-      "icon": "build/santipab.ico",
+      "icon": "build/applogo.ico",
       "signAndEditExecutable": true
     },
     "nsis": {
-      "artifactName": "santiparbpos-Setup-${version}.${ext}",
+      "artifactName": "NextStep-POS-Setup-${version}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "santiparbpos",
-      "installerIcon": "build/santipab.ico",
-      "uninstallerIcon": "build/santipab.ico",
-      "installerHeaderIcon": "build/santipab.ico"
+      "shortcutName": "NextStep POS",
+      "installerIcon": "build/applogo.ico",
+      "uninstallerIcon": "build/applogo.ico",
+      "installerHeaderIcon": "build/applogo.ico"
     },
     "portable": {
-      "artifactName": "santiparbpos-${version}-portable-x64.exe"
+      "artifactName": "NextStep-POS-${version}-portable-x64.exe"
     },
     "mac": {
       "target": [
@@ -106,12 +106,12 @@
           ]
         }
       ],
-      "icon": "public/santipab.png",
+      "icon": "public/applogo.png",
       "category": "public.app-category.business",
       "identity": null
     },
     "dmg": {
-      "artifactName": "santiparbpos-${version}-universal.dmg"
+      "artifactName": "NextStep-POS-${version}-universal.dmg"
     }
   }
 }

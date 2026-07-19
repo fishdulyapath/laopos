@@ -139,9 +139,9 @@ onUnmounted(() => clearInterval(timer))
   gap: 0.75rem;
   padding: 1rem;
   margin-bottom: 1rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .alert-head {
@@ -156,13 +156,13 @@ onUnmounted(() => clearInterval(timer))
   align-items: center;
   gap: 0.5rem;
   font-weight: 800;
-  color: #9a3412;
+  color: #075985;
 }
 
 .alert-subtitle {
   margin-top: 0.25rem;
   font-size: 0.875rem;
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .alert-actions {
@@ -199,7 +199,7 @@ onUnmounted(() => clearInterval(timer))
 
 .pending-main span,
 .pending-id {
-  color: #9a3412;
+  color: #075985;
   font-size: 0.8125rem;
 }
 
@@ -221,7 +221,7 @@ onUnmounted(() => clearInterval(timer))
 
 .pending-amount {
   font-weight: 800;
-  color: #7c2d12;
+  color: #0c4a6e;
 }
 
 @media (max-width: 768px) {

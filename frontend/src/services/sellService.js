@@ -195,6 +195,13 @@ export async function saveTrans(body) {
 export async function saveTransAndPro(body) {
   try {
     const payment_detail = Array.isArray(body.payment_detail) ? body.payment_detail : []
+    const normalizeCurrencyCode = (value) => {
+      const code = String(value || '').trim().toUpperCase()
+      if (['LAK', 'KIP', 'KIPP', 'KIP2', 'LAO'].includes(code)) return 'LAK'
+      if (['THB', 'BTH', 'TH'].includes(code)) return 'THB'
+      return code
+    }
+    const homeCurrencyCode = normalizeCurrencyCode(body.home_currency || 'LAK') || 'LAK'
 
     const adjustedPayment = payment_detail.map((entry) => {
       if (entry.type !== 'credit_transfer') return entry
@@ -205,9 +212,9 @@ export async function saveTransAndPro(body) {
       if (!rdCharge) return entry
 
       const chargeAmount = Number(rdCharge.amount) || 0
-      const isTHB = ['THB', 'BTH'].includes((entry.currency_code || '').toUpperCase())
+      const isHomeCurrency = normalizeCurrencyCode(entry.currency_code) === homeCurrencyCode
 
-      if (isTHB) {
+      if (isHomeCurrency) {
         return {
           ...entry,
           amount: (Number(entry.amount) || 0) + chargeAmount,

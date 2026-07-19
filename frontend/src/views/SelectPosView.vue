@@ -190,9 +190,9 @@ function logout() {
   overflow: hidden;
   width: 100%;
   max-width: 480px;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   box-shadow: 0 24px 54px rgba(249, 115, 22, 0.16);
 }
 
@@ -200,7 +200,7 @@ function logout() {
   content: "";
   display: block;
   height: 0.42rem;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
 }
 
 .pos-card :deep(.p-card-body) {
@@ -220,17 +220,17 @@ function logout() {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
-  color: #7c5740;
+  color: #475569;
 }
 
 .pos-logout-button:hover {
-  color: #c2410c;
-  background: #fff7ed;
+  color: #0369a1;
+  background: #eff6ff;
 }
 
 .pos-icon {
   font-size: 2.5rem;
-  color: #f15a00;
+  color: #0284c7;
   filter: drop-shadow(0 10px 18px rgba(249, 115, 22, 0.2));
 }
 
@@ -244,7 +244,7 @@ function logout() {
 .pos-subtitle {
   margin: 0;
   font-size: 0.875rem;
-  color: #7c5740;
+  color: #475569;
 }
 
 .loading-center {
@@ -264,18 +264,18 @@ function logout() {
 
 .search-box :deep(input) {
   width: 100%;
-  border-color: #fed7aa;
-  background: linear-gradient(180deg, #ffffff 0%, #fffdf8 100%);
+  border-color: #bae6fd;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   color: #1f2937;
 }
 
 .search-box :deep(input:enabled:focus) {
-  border-color: #fb923c;
+  border-color: #38bdf8;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
 }
 
 .search-box :deep(.p-inputicon) {
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .pos-list-wrap {
@@ -292,7 +292,7 @@ function logout() {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
   cursor: pointer;
@@ -302,7 +302,7 @@ function logout() {
 
 .pos-item:hover {
   background: #ffffff;
-  border-color: #fb923c;
+  border-color: #38bdf8;
   box-shadow: 0 10px 24px rgba(249, 115, 22, 0.12);
   transform: translateY(-1px);
 }
@@ -336,11 +336,11 @@ function logout() {
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: #7c5740;
+  color: #475569;
 }
 
 .pos-tag i {
-  color: #c2410c;
+  color: #0369a1;
 }
 
 .empty-msg {
@@ -349,17 +349,17 @@ function logout() {
   align-items: center;
   gap: 0.5rem;
   padding: 2rem;
-  color: #7c5740;
+  color: #475569;
 }
 
 .empty-icon {
   font-size: 2rem;
-  color: #f15a00;
+  color: #0284c7;
 }
 
 .pos-item :deep(.p-button) {
   border-color: transparent;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   color: #ffffff;
   font-weight: 900;
   box-shadow: 0 10px 20px rgba(249, 115, 22, 0.2);

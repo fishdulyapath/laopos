@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -92,14 +92,11 @@ import bcelThbQrImage from "@/assets/bcel_thb.jpg";
 import bcelUsdQrImage from "@/assets/bcel_usd.jpg";
 import laoQrMarkImage from "@/assets/laoqr.svg";
 import onePayMarkImage from "@/assets/onepay.png";
-import thankYouLaoAudio from "@/assets/thankyoulao.m4a";
-import thankYouEndAudio from "@/assets/thankyouend.mp3";
 
 const toast = useToast();
 const confirm = useConfirm();
 const { t, locale } = useI18n();
 const QR_PAYMENT_COUNTDOWN_SECONDS = 15 * 60;
-const THANK_YOU_AUDIO_GAIN = 3;
 function tl(th, en, lo = en) {
   const lang = String(locale.value || "th").toLowerCase();
   if (lang.startsWith("en")) return en;
@@ -143,48 +140,6 @@ async function defaultEmployeeNames() {
   }
 }
 
-function playAudioUrl(url) {
-  return new Promise((resolve, reject) => {
-    if (typeof Audio === "undefined" || !url) {
-      resolve(false);
-      return;
-    }
-    const audio = new Audio(url);
-    audio.preload = "auto";
-    audio.volume = 1;
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    let audioContext = null;
-    if (AudioContextClass) {
-      audioContext = new AudioContextClass();
-      const source = audioContext.createMediaElementSource(audio);
-      const gainNode = audioContext.createGain();
-      gainNode.gain.value = THANK_YOU_AUDIO_GAIN;
-      source.connect(gainNode).connect(audioContext.destination);
-    }
-    const finish = (value) => {
-      if (audioContext?.state !== "closed") audioContext.close().catch(() => {});
-      resolve(value);
-    };
-    const fail = (error) => {
-      if (audioContext?.state !== "closed") audioContext.close().catch(() => {});
-      reject(error);
-    };
-    audio.addEventListener("ended", () => finish(true), { once: true });
-    audio.addEventListener("error", () => fail(new Error(`Unable to play audio: ${url}`)), { once: true });
-    Promise.resolve(audioContext?.resume?.())
-      .then(() => audio.play())
-      .catch(fail);
-  });
-}
-
-async function playThankYouAudioAfterSaleSave() {
-  try {
-    await playAudioUrl(thankYouLaoAudio);
-    await playAudioUrl(thankYouEndAudio);
-  } catch (error) {
-    console.warn("Thank-you audio playback failed", error);
-  }
-}
 const authStore = useAuthStore();
 const posStore = usePosStore();
 const route = useRoute();
@@ -516,7 +471,7 @@ const paymentReviewTotal = ref(null);
 const cashInputAmount = ref(0);
 const cashTenderText = ref("0");
 const cashTenderInputRef = ref(null);
-const cashCurrencyCode = ref("THB");
+const cashCurrencyCode = ref("LAK");
 const cashCurrencyAmount = ref(0);
 const cashExchangeRate = ref(1);
 const cashExchangeRateText = ref("1");
@@ -809,24 +764,31 @@ function cashCurrencyCodeFromPayType(type) {
   return normalizeCashCurrencyCode(String(type || "").slice(cashCurrencyPayTypePrefix.length));
 }
 
-const homeCashCurrencyAliases = new Set(["BTH", "THB", "TH"]);
+const lakCurrencyAliases = new Set(["LAK", "KIP", "KIPP", "KIP2", "LAO"]);
+const thbCurrencyAliases = new Set(["BTH", "THB", "TH"]);
 
 function normalizeCashCurrencyCode(code) {
   const value = String(code || "")
     .trim()
     .toUpperCase();
-  return homeCashCurrencyAliases.has(value) ? "THB" : value;
+  if (lakCurrencyAliases.has(value)) return "LAK";
+  if (thbCurrencyAliases.has(value)) return "THB";
+  return value;
+}
+
+function currentHomeCashCurrencyCode() {
+  return normalizeCashCurrencyCode(paymentMasterOptions.value?.home_currency || "LAK") || "LAK";
 }
 
 function isHomeCashCurrencyCode(code) {
-  return normalizeCashCurrencyCode(code) === "THB";
+  return normalizeCashCurrencyCode(code) === currentHomeCashCurrencyCode();
 }
 
 function isKipCashCurrencyCode(code) {
   return ["LAK", "KIP", "KIPP", "KIP2", "LAO"].includes(normalizeCashCurrencyCode(code));
 }
 
-const changeRoundingCurrencyCode = normalizeCashCurrencyCode(import.meta.env.VITE_CHANGE_CURRENCY_CODE || "KIP") || "KIP";
+const changeRoundingCurrencyCode = normalizeCashCurrencyCode(import.meta.env.VITE_CHANGE_CURRENCY_CODE || "LAK") || "LAK";
 const changeRoundingStep = (() => {
   const value = Number(import.meta.env.VITE_CHANGE_ROUNDING_STEP);
   return Number.isFinite(value) && value > 0 ? value : 500;
@@ -840,10 +802,22 @@ const changeRoundingMode = (() => {
 const changeRoundingIncomeCode = String(import.meta.env.VITE_CHANGE_ROUNDING_INCOME_CODE || "RD-002").trim() || "RD-002";
 const changeRoundingPrecision = 8;
 
-const foreignCashCurrencyCodes = computed(() => Array.from(new Set(summaryCurrencyCodes.value.map(normalizeCashCurrencyCode).filter((code) => code && code !== "THB"))));
+const foreignCashCurrencyCodes = computed(() => {
+  const homeCode = currentHomeCashCurrencyCode();
+  return Array.from(new Set(summaryCurrencyCodes.value.map(normalizeCashCurrencyCode).filter((code) => code && code !== homeCode)));
+});
 
 const cashCurrencyTabs = computed(() => {
-  const thbTab = { code: "THB", label: "THB", name: t("sell.baht"), name_2: "1", rate: 1, home: true };
+  const homeCode = currentHomeCashCurrencyCode();
+  const homeCurrency = currencyOptionByCode(homeCode, null);
+  const homeTab = {
+    code: homeCode,
+    label: homeCode,
+    name: String(homeCurrency?.name_1 || homeCurrency?.name || homeCode).trim() || homeCode,
+    name_2: "1",
+    rate: 1,
+    home: true,
+  };
   const foreignTabs = foreignCashCurrencyCodes.value.map((code) => {
     const currency = currencyOptionByCode(code, null);
     return {
@@ -855,12 +829,12 @@ const cashCurrencyTabs = computed(() => {
       home: false,
     };
   });
-  const kipTabs = foreignTabs.filter((tab) => isKipCashCurrencyCode(tab.code));
-  const otherForeignTabs = foreignTabs.filter((tab) => !isKipCashCurrencyCode(tab.code));
-  return [...kipTabs, thbTab, ...otherForeignTabs];
+  const thbTabs = foreignTabs.filter((tab) => tab.code === "THB");
+  const otherForeignTabs = foreignTabs.filter((tab) => tab.code !== "THB");
+  return [homeTab, ...thbTabs, ...otherForeignTabs];
 });
 
-const defaultCashCurrencyCode = computed(() => foreignCashCurrencyCodes.value.find((code) => isKipCashCurrencyCode(code)) || "THB");
+const defaultCashCurrencyCode = computed(() => currentHomeCashCurrencyCode());
 
 const otherCurrencyOptions = computed(() => currencyTypes.value.filter((row) => !foreignCashCurrencyCodes.value.includes(normalizeCashCurrencyCode(row.code))));
 
@@ -927,7 +901,8 @@ function defaultSaleVatType() {
 }
 
 function defaultDocumentCurrency() {
-  return currencyTypes.value.find((row) => row.code === paymentMasterOptions.value.home_currency) || currencyTypes.value.find((row) => row.code === "THB") || null;
+  const homeCode = currentHomeCashCurrencyCode();
+  return currencyTypes.value.find((row) => normalizeCashCurrencyCode(row.code) === homeCode) || { code: homeCode, label: homeCode, name_1: homeCode, exchange_rate_present: 1 };
 }
 
 function currencyOptionByCode(code, fallback = defaultDocumentCurrency()) {
@@ -938,7 +913,7 @@ function currencyOptionByCode(code, fallback = defaultDocumentCurrency()) {
       code: target,
       label: target,
       name_1: target,
-      exchange_rate_present: target === "THB" ? 1 : 0,
+      exchange_rate_present: isHomeCashCurrencyCode(target) ? 1 : 0,
     }
   );
 }
@@ -964,21 +939,21 @@ function normalizeSummaryCurrencyCodes(value) {
 }
 
 function paymentCurrencyRate(currency, fallback = 1) {
-  const code = paymentCurrencyCode(currency);
-  if (!code || code === "THB") return 1;
+  const code = normalizeCashCurrencyCode(paymentCurrencyCode(currency));
+  if (!code || isHomeCashCurrencyCode(code)) return 1;
   return toNumber(currency?.exchange_rate_present, masterCurrencyRate(code, fallback)) || fallback;
 }
 
 function paymentCurrencyName2Rate(currency, fallback = 1) {
-  const code = paymentCurrencyCode(currency);
-  if (!code || code === "THB") return 1;
+  const code = normalizeCashCurrencyCode(paymentCurrencyCode(currency));
+  if (!code || isHomeCashCurrencyCode(code)) return 1;
   return toNumber(String(currency?.name_2 || "").replace(/,/g, ""), 0) || paymentCurrencyRate(currency, fallback) || fallback;
 }
 
 function applyPaymentCurrency(targetCurrency, targetRate, code) {
   const currency = currencyOptionByCode(code);
   targetCurrency.value = currency;
-  targetRate.value = paymentCurrencyRate(currency, paymentCurrencyCode(currency) === "THB" ? 1 : 0);
+  targetRate.value = paymentCurrencyRate(currency, isHomeCashCurrencyCode(paymentCurrencyCode(currency)) ? 1 : 0);
 }
 
 function optionLabel(row) {
@@ -1629,7 +1604,7 @@ function setCashTenderAmount(amount) {
   applyCashTenderText(formatCashTenderText(amount));
 }
 
-function setCashAmountFromBaht(amount, code = "THB") {
+function setCashAmountFromBaht(amount, code = currentHomeCashCurrencyCode()) {
   cashCurrencyDrafts.value = {};
   cashInputAmount.value = 0;
   loadCashCurrencyDraft(code);
@@ -1685,7 +1660,7 @@ function paymentEntryTitle(entry) {
 
 function paymentEntryCurrencyDescription(entry) {
   const details = entry?.details || {};
-  const currencyCode = String(details.currency_code || "").trim() || "THB";
+  const currencyCode = normalizeCashCurrencyCode(details.currency_code || currentHomeCashCurrencyCode());
   const currency = currencyOptionByCode(currencyCode, null);
   const currencyName = currencyCode === "THB" ? t("sell.baht") : String(currency?.name_1 || currency?.name || currencyCode).trim() || currencyCode;
   const amount = toNumber(details.sum_amount || entry?.amount);
@@ -1696,7 +1671,7 @@ function paymentEntryCurrencyDescription(entry) {
 function paymentEntryDescription(entry) {
   if (entry.type === "cash" && entry.details?.currency_code) {
     const details = entry.details;
-    if (details.currency_code === "THB") return t("payment.cash");
+    if (isHomeCashCurrencyCode(details.currency_code)) return t("payment.cash");
     return `${formatQty(details.currency_amount)} ${details.currency_name || details.currency_code} x ${formatQty(details.exchange_rate)}`;
   }
   if (entry.type === "transfer" || entry.type === "credit_transfer") {
@@ -1721,12 +1696,12 @@ function paymentEntryDescription(entry) {
 
 function cashCurrencyIconInfo(code) {
   const normalized = normalizeCashCurrencyCode(
-    String(code || "THB")
+    String(code || currentHomeCashCurrencyCode())
       .trim()
       .toUpperCase(),
   );
   if (normalized === "THB") return { icon: "pi pi-money-bill", color: "#3b82f6", bg: "#eff6ff" };
-  if (isKipCashCurrencyCode(normalized)) return { icon: "pi pi-money-bill", color: "#e87e2c", bg: "#fff7ed" };
+  if (isKipCashCurrencyCode(normalized)) return { icon: "pi pi-money-bill", color: "#0284c7", bg: "#eff6ff" };
   if (normalized === "USD") return { icon: "pi pi-dollar", color: "#22c55e", bg: "#f0fdf4" };
   if (normalized === "CNY") return { icon: "pi pi-money-bill", color: "#ef4444", bg: "#fef2f2" };
   return { icon: "pi pi-money-bill", color: "#0ea5e9", bg: "#f0f9ff" };
@@ -1738,7 +1713,7 @@ function paymentEntryIconInfo(entry) {
     credit_transfer: { icon: "pi pi-credit-card", color: "#6366f1", bg: "#eef2ff" },
     credit: { icon: "pi pi-credit-card", color: "#a855f7", bg: "#faf5ff" },
     cheque: { icon: "pi pi-file", color: "#64748b", bg: "#f8fafc" },
-    petty: { icon: "pi pi-briefcase", color: "#f59e0b", bg: "#fffbeb" },
+    petty: { icon: "pi pi-briefcase", color: "#0284c7", bg: "#f0f9ff" },
     deposit: { icon: "pi pi-receipt", color: "#14b8a6", bg: "#f0fdfa" },
     deposit_money: { icon: "pi pi-wallet", color: "#0ea5e9", bg: "#f0f9ff" },
     coupon: { icon: "pi pi-ticket", color: "#ec4899", bg: "#fdf2f8" },
@@ -1746,10 +1721,10 @@ function paymentEntryIconInfo(entry) {
     income: { icon: "pi pi-plus-circle", color: "#22c55e", bg: "#f0fdf4" },
     expense: { icon: "pi pi-minus-circle", color: "#ef4444", bg: "#fef2f2" },
     currency: { icon: "pi pi-globe", color: "#0ea5e9", bg: "#f0f9ff" },
-    wallet: { icon: "pi pi-wallet", color: "#f97316", bg: "#fff7ed" },
+    wallet: { icon: "pi pi-wallet", color: "#0ea5e9", bg: "#eff6ff" },
   };
   if (entry.type === "cash") {
-    return cashCurrencyIconInfo(entry.details?.currency_code || "THB");
+    return cashCurrencyIconInfo(entry.details?.currency_code || currentHomeCashCurrencyCode());
   }
   return (
     typeIcons[entry.type] || {
@@ -1762,7 +1737,7 @@ function paymentEntryIconInfo(entry) {
 
 function masterCurrencyRate(code, fallback = 0) {
   const currencyCode = String(code || "").trim();
-  if (!currencyCode || currencyCode === "THB") return 1;
+  if (!currencyCode || isHomeCashCurrencyCode(currencyCode)) return 1;
   const currency = currencyTypes.value.find((item) => String(item.code || "").trim() === currencyCode);
   return toNumber(currency?.exchange_rate_present, fallback);
 }
@@ -1773,7 +1748,7 @@ function paymentEntryChargeAmount(entry) {
   const charge = toNumber(details.charge);
   if (docType !== 3) return charge;
   const currencyCode = String(details.currency_code || "").trim();
-  if (!currencyCode || currencyCode === "THB") return charge;
+  if (!currencyCode || isHomeCashCurrencyCode(currencyCode)) return charge;
   const exchangeRate = toNumber(details.exchange_rate, masterCurrencyRate(currencyCode, 1)) || 1;
   return rnd(toNumber(details.charge_2, charge * exchangeRate));
 }
@@ -1789,11 +1764,11 @@ function paymentEntryAmount(entry) {
 
   if (docType === 19) return rnd(sumAmount + charge);
   if (docType === 3) {
-    if (currencyCode && currencyCode !== "THB") return rnd(toNumber(details.sum_amount_2, sumAmount * exchangeRate));
+    if (currencyCode && !isHomeCashCurrencyCode(currencyCode)) return rnd(toNumber(details.sum_amount_2, sumAmount * exchangeRate));
     return rnd(sumAmount);
   }
   if ([1, 2, 4].includes(docType)) {
-    if (currencyCode && currencyCode !== "THB") return rnd(toNumber(details.sum_amount_2, sumAmount * exchangeRate));
+    if (currencyCode && !isHomeCashCurrencyCode(currencyCode)) return rnd(toNumber(details.sum_amount_2, sumAmount * exchangeRate));
     return rnd(sumAmount);
   }
   return rnd(toNumber(entry.amount) + charge);
@@ -1809,7 +1784,7 @@ function recalculatePaymentEntryExchangeRate(entry, exchangeRateValue) {
   const details = entry.details;
   const docType = toNumber(details.doc_type);
   const currencyCode = String(details.currency_code || "").trim();
-  if (!currencyCode || currencyCode === "THB") return;
+  if (!currencyCode || isHomeCashCurrencyCode(currencyCode)) return;
   const exchangeRate = toNumber(exchangeRateValue, details.exchange_rate || 1) || 1;
   const amount = toNumber(details.amount ?? entry.amount);
   const charge = toNumber(details.charge);
@@ -1835,7 +1810,7 @@ function recalculatePaymentEntryExchangeRate(entry, exchangeRateValue) {
 
 function syncPaymentEntriesExchangeRate(types, currencyCode, exchangeRateValue) {
   const code = String(currencyCode || "").trim();
-  if (!code || code === "THB") {
+  if (!code || isHomeCashCurrencyCode(code)) {
     refreshPaymentTotalsAfterExchangeRateChange();
     return;
   }
@@ -1863,7 +1838,7 @@ function syncOtherCurrencyExchangeRateCalculations(exchangeRateValue = otherCurr
 
 function syncDocumentExchangeRateCalculations(exchangeRateValue = documentExchangeRateValue()) {
   const code = documentCurrencyCodeValue();
-  if (!code || code === "THB") {
+  if (!code || isHomeCashCurrencyCode(code)) {
     refreshPaymentTotalsAfterExchangeRateChange();
     return;
   }
@@ -2056,8 +2031,8 @@ function documentCurrencyCodeValue() {
 }
 
 function isDocumentForeignCurrencyValue() {
-  const code = documentCurrencyCodeValue();
-  return !!code && code !== "THB";
+  const code = normalizeCashCurrencyCode(documentCurrencyCodeValue());
+  return !!code && !isHomeCashCurrencyCode(code);
 }
 
 function documentExchangeRateValue() {
@@ -2249,7 +2224,9 @@ const activeCashChangeAmount = computed(() => {
   const tender = toNumber(cashCurrencyAmount.value);
   return Math.max(0, rnd(tender - activeCashDueAmount.value));
 });
-const activeCashQuickAmounts = computed(() => (isHomeCashCurrency.value ? cashQuickAmounts : isKipCashCurrencyCode(cashCurrencyCode.value) ? cashForeignQuickAmounts : cashForeignSmallQuickAmounts));
+const activeCashQuickAmounts = computed(() =>
+  isKipCashCurrencyCode(cashCurrencyCode.value) ? cashForeignQuickAmounts : isHomeCashCurrency.value ? cashQuickAmounts : cashForeignSmallQuickAmounts,
+);
 const activeCashExchangeRateValid = computed(() => isHomeCashCurrency.value || toNumber(cashExchangeRate.value) > 0);
 
 const isKipActiveCurrency = computed(() => isKipCashCurrencyCode(cashCurrencyCode.value));
@@ -2360,7 +2337,7 @@ const cashPaidCurrencyRows = computed(() =>
       const code = normalizeCashCurrencyCode(entry.currency_code);
       const currency = currencyOptionByCode(code, null);
       const currencyName = code === "THB" ? t("sell.baht") : String(currency?.name_1 || entry.currency_name || code).trim() || code;
-      const rate = toNumber(entry.exchange_rate, code === "THB" ? 1 : paymentCurrencyRate(currency, 0));
+      const rate = toNumber(entry.exchange_rate, isHomeCashCurrencyCode(code) ? 1 : paymentCurrencyRate(currency, 0));
       return {
         code,
         label: currencyName,
@@ -2374,8 +2351,8 @@ const paidCurrencySummaryRows = computed(() => {
   const rows = [...cashPaidCurrencyRows.value];
   if (!rows.length && totalPaid.value > 0)
     rows.push({
-      code: "THB",
-      label: t("sell.baht"),
+      code: currentHomeCashCurrencyCode(),
+      label: currentHomeCashCurrencyCode(),
       amount: totalPaid.value,
       homeAmount: totalPaid.value,
       rate: 1,
@@ -2383,13 +2360,13 @@ const paidCurrencySummaryRows = computed(() => {
   return rows;
 });
 const transferCurrencyCode = computed(() => paymentCurrencyCode(transferCurrency.value));
-const transferRate = computed(() => (transferCurrencyCode.value === "THB" ? 1 : toNumber(transferExchangeRate.value, paymentCurrencyRate(transferCurrency.value, 0))));
+const transferRate = computed(() => (isHomeCashCurrencyCode(transferCurrencyCode.value) ? 1 : toNumber(transferExchangeRate.value, paymentCurrencyRate(transferCurrency.value, 0))));
 function roundTransferHomeAmount(value, currencyCode = transferCurrencyCode.value) {
   return rnd(value, isKipCashCurrencyCode(currencyCode) ? 0 : itemAmountDecimal.value);
 }
 
 const transferConvertedAmount = computed(() => roundTransferHomeAmount(toNumber(transferInputAmount.value) * transferRate.value));
-const isKipTransferCurrency = computed(() => isKipCashCurrencyCode(transferCurrencyCode.value));
+const isKipTransferCurrency = computed(() => isKipCashCurrencyCode(transferCurrencyCode.value) && !isHomeCashCurrencyCode(transferCurrencyCode.value));
 // KIP/LAK/KIPP/KIP2: ปัดเศษเงินลาว (ทวีคูณ 500 ปัดขึ้น) ที่ "ยอดรับเงินโอน" = base + charge
 // (ไม่ใช่ปัดที่ base ก่อน charge) — เศษที่ปัดขึ้นถูกบวกรวมเป็น charge (รายได้ค่าธรรมเนียม)
 const transferKipBaseRaw = computed(() => {
@@ -2437,7 +2414,7 @@ const transferReceivedThbAmount = computed(() => (isKipTransferCurrency.value ? 
 // แสดงสรุปในสกุลของการโอน (ทุกสกุลที่ไม่ใช่ THB) — display only
 const isForeignTransferCurrency = computed(() => {
   const code = transferCurrencyCode.value;
-  return !!code && code !== "THB";
+  return !!code && !isHomeCashCurrencyCode(code);
 });
 // Charge ในสกุลของการโอน (KIP = จำนวนเต็ม, สกุลอื่น = 2 ตำแหน่ง)
 const transferChargeInCurrency = computed(() => {
@@ -2456,7 +2433,7 @@ function isForeignTransferRoundingCandidate(entry) {
   if (!entry || (entry.type !== "transfer" && entry.type !== "credit_transfer")) return false;
   const details = entry.details || {};
   const currencyCode = String(details.currency_code || "").trim();
-  return toNumber(details.doc_type) === 1 && !!currencyCode && currencyCode !== "THB" && !isKipCashCurrencyCode(currencyCode);
+  return toNumber(details.doc_type) === 1 && !!currencyCode && !isHomeCashCurrencyCode(currencyCode) && !isKipCashCurrencyCode(currencyCode);
 }
 // หน้ากากของช่อง "จำนวนรับชำระ": สกุล KIP กรอกเป็น KIP (base ก่อน charge) แต่เก็บภายในเป็น THB เท่าเดิม
 // → สูตรคำนวณปลายน้ำทั้งหมดไม่เปลี่ยน ผลลัพธ์เหมือนเดิมทุกประการ
@@ -2487,11 +2464,11 @@ function transferInputFromHome(homeAmount) {
 const transferAccountName = computed(() => passBookAccountName(transferPassBook.value));
 const transferAccountNumber = computed(() => passBookAccountNumber(transferPassBook.value));
 const creditCurrencyCode = computed(() => paymentCurrencyCode(creditCurrency.value));
-const creditRate = computed(() => (creditCurrencyCode.value === "THB" ? 1 : toNumber(creditExchangeRate.value, paymentCurrencyRate(creditCurrency.value, 0))));
+const creditRate = computed(() => (isHomeCashCurrencyCode(creditCurrencyCode.value) ? 1 : toNumber(creditExchangeRate.value, paymentCurrencyRate(creditCurrency.value, 0))));
 const creditConvertedAmount = computed(() => rnd(toNumber(creditInputAmount.value) * creditRate.value));
 const selectedOtherCurrency = computed(() => otherCurrency.value || null);
 const otherCurrencyCode = computed(() => paymentCurrencyCode(otherCurrency.value));
-const otherCurrencyRate = computed(() => (otherCurrencyCode.value === "THB" ? 1 : toNumber(otherCurrencyExchangeRate.value, paymentCurrencyRate(selectedOtherCurrency.value, 0))));
+const otherCurrencyRate = computed(() => (isHomeCashCurrencyCode(otherCurrencyCode.value) ? 1 : toNumber(otherCurrencyExchangeRate.value, paymentCurrencyRate(selectedOtherCurrency.value, 0))));
 const otherCurrencyConvertedAmount = computed(() => rnd(toNumber(otherCurrencyAmount.value) * otherCurrencyRate.value));
 const selectedCouponAvailableAmount = computed(() => {
   if (!couponSelected.value) return 0;
@@ -2504,30 +2481,24 @@ const selectedCouponAvailableAmount = computed(() => {
 });
 const selectedCouponMaxAmount = computed(() => Math.max(0, Math.min(selectedCouponAvailableAmount.value, remainingPayment.value)));
 const chequeCurrencyCode = computed(() => paymentCurrencyCode(chequeCurrency.value));
-const chequeRate = computed(() => (chequeCurrencyCode.value === "THB" ? 1 : toNumber(chequeExchangeRate.value, paymentCurrencyRate(chequeCurrency.value, 0))));
+const chequeRate = computed(() => (isHomeCashCurrencyCode(chequeCurrencyCode.value) ? 1 : toNumber(chequeExchangeRate.value, paymentCurrencyRate(chequeCurrency.value, 0))));
 const chequeConvertedAmount = computed(() => rnd(toNumber(chequeAmount.value) * chequeRate.value));
 const selectedDocumentCurrency = computed(() => documentCurrency.value || null);
-const masterHomeCurrencyCode = computed(() => String(paymentMasterOptions.value.home_currency || "THB").trim() || "THB");
+const masterHomeCurrencyCode = computed(() => currentHomeCashCurrencyCode());
 
 function convertHomeAmountToCurrency(amount, targetCurrencyCode) {
   const targetCode = String(targetCurrencyCode || "")
     .trim()
     .toUpperCase();
-  const homeCode = String(masterHomeCurrencyCode.value || "THB")
-    .trim()
-    .toUpperCase();
+  const homeCode = normalizeCashCurrencyCode(masterHomeCurrencyCode.value || "LAK");
   const sourceAmount = toNumber(amount);
   if (!targetCode) return sourceAmount;
   if (targetCode === homeCode) return rnd(sourceAmount, itemAmountDecimal.value);
 
-  const homeRate = toNumber(masterCurrencyRate(homeCode, 1), 1) || 1;
-  const amountInThb = homeCode === "THB" ? sourceAmount : sourceAmount * homeRate;
-  if (targetCode === "THB") return rnd(amountInThb, itemAmountDecimal.value);
-
   const targetRate = toNumber(masterCurrencyRate(targetCode, 0), 0);
   if (targetRate <= 0) return 0;
-  if (!isKipCashCurrencyCode(targetCode)) return roundUpCurrencyAmount(amountInThb / targetRate, 2);
-  return rnd(amountInThb / targetRate, itemAmountDecimal.value);
+  if (!isKipCashCurrencyCode(targetCode)) return roundUpCurrencyAmount(sourceAmount / targetRate, 2);
+  return rnd(sourceAmount / targetRate, itemAmountDecimal.value);
 }
 
 const summaryCurrencyCodes = computed(() => normalizeSummaryCurrencyCodes(paymentMasterOptions.value.summary_currency_codes));
@@ -2564,7 +2535,7 @@ const paymentExchangeRateRows = computed(() =>
         code: currencyCode,
         name: String(currency?.name_1 || currency?.name || currencyCode).trim() || currencyCode,
         name_2: String(currency?.name_2).trim() || "1",
-        rate: currencyCode === "THB" ? 1 : masterCurrencyRate(currencyCode, 0),
+        rate: isHomeCashCurrencyCode(currencyCode) ? 1 : masterCurrencyRate(currencyCode, 0),
       };
     })
     .filter((row, index, list) => row.code && list.findIndex((item) => item.code === row.code) === index),
@@ -2806,7 +2777,7 @@ const customerDisplayPayment = computed(() => ({
   change: customerDisplayChangeAmount.value,
   rounded: customerDisplayProjectedAmount(roundedAmount.value),
 }));
-const showPaymentSuccessDisplayCurrency = computed(() => normalizeCashCurrencyCode(customerDisplayPayment.value.currencyCode) !== "THB");
+const showPaymentSuccessDisplayCurrency = computed(() => !isHomeCashCurrencyCode(customerDisplayPayment.value.currencyCode));
 
 function formatCustomerDisplayPaymentAmount(key) {
   const payment = customerDisplayPayment.value || {};
@@ -3049,10 +3020,10 @@ async function openCustomerDisplay({ silent = false } = {}) {
 
 const documentExchangeRateDisabled = computed(() => documentLocked.value || !isDocumentForeignCurrencyValue());
 const cashExchangeRateDisabled = computed(() => documentLocked.value || !cashCurrencyCode.value || isHomeCashCurrency.value);
-const transferExchangeRateDisabled = computed(() => documentLocked.value || !transferCurrencyCode.value || transferCurrencyCode.value === "THB");
-const creditExchangeRateDisabled = computed(() => documentLocked.value || !creditCurrencyCode.value || creditCurrencyCode.value === "THB");
-const chequeExchangeRateDisabled = computed(() => documentLocked.value || !chequeCurrencyCode.value || chequeCurrencyCode.value === "THB");
-const otherCurrencyExchangeRateDisabled = computed(() => documentLocked.value || !otherCurrencyCode.value || otherCurrencyCode.value === "THB");
+const transferExchangeRateDisabled = computed(() => documentLocked.value || !transferCurrencyCode.value || isHomeCashCurrencyCode(transferCurrencyCode.value));
+const creditExchangeRateDisabled = computed(() => documentLocked.value || !creditCurrencyCode.value || isHomeCashCurrencyCode(creditCurrencyCode.value));
+const chequeExchangeRateDisabled = computed(() => documentLocked.value || !chequeCurrencyCode.value || isHomeCashCurrencyCode(chequeCurrencyCode.value));
+const otherCurrencyExchangeRateDisabled = computed(() => documentLocked.value || !otherCurrencyCode.value || isHomeCashCurrencyCode(otherCurrencyCode.value));
 const selectedWhtHeader = computed(() => whtHeaders.value.find((row) => row.id === selectedWhtHeaderId.value) || null);
 const selectedWhtDetails = computed(() => selectedWhtHeader.value?.details || []);
 const vatRowsWithTotals = computed(() =>
@@ -3210,7 +3181,7 @@ function paymentTypeAmount(type, includeCharge = false) {
         const details = entry.details || {};
         const docType = toNumber(details.doc_type);
         if (type === "credit") return sum + rnd(paymentEntryAmount(entry) - paymentEntryChargeAmount(entry));
-        if ([1, 2, 4].includes(docType) && String(details.currency_code || "").trim() && String(details.currency_code || "").trim() !== "THB") {
+        if ([1, 2, 4].includes(docType) && String(details.currency_code || "").trim() && !isHomeCashCurrencyCode(details.currency_code)) {
           return sum + paymentEntryAmount(entry);
         }
         if (docType === 19) return sum + toNumber(details.sum_amount, entry.amount);
@@ -3220,7 +3191,7 @@ function paymentTypeAmount(type, includeCharge = false) {
 }
 
 function paymentMethodCurrencyCode(tab) {
-  if (tab?.value === "cash") return "THB";
+  if (tab?.value === "cash") return currentHomeCashCurrencyCode();
   if (isCashCurrencyPayType(tab?.value)) return cashCurrencyCodeFromPayType(tab.value);
   return "";
 }
@@ -3310,7 +3281,7 @@ const paymentBreakdownRows = computed(() =>
 );
 
 const paymentDetailRows = computed(() => [
-  { label: t("sell.summaryBaht"), amount: totals.value.totalAmount },
+  { label: `${t("sell.netAmount")} (${masterHomeCurrencyCode.value})`, amount: totals.value.totalAmount },
   {
     label: t("sell.otherIncome"),
     amount: totalIncomeOtherEntries.value,
@@ -3680,19 +3651,19 @@ watch(laoQrProvider, () => {
 });
 
 watch(transferPassBook, (book) => {
-  applyPaymentCurrency(transferCurrency, transferExchangeRate, book?.currency_code || "THB");
+  applyPaymentCurrency(transferCurrency, transferExchangeRate, book?.currency_code || currentHomeCashCurrencyCode());
 });
 
 watch(creditType, (type) => {
-  applyPaymentCurrency(creditCurrency, creditExchangeRate, type?.currency_code || documentCurrency.value?.code || "THB");
+  applyPaymentCurrency(creditCurrency, creditExchangeRate, type?.currency_code || documentCurrency.value?.code || currentHomeCashCurrencyCode());
 });
 
 watch(chequePassBook, (book) => {
-  applyPaymentCurrency(chequeCurrency, chequeExchangeRate, book?.currency_code || documentCurrency.value?.code || "THB");
+  applyPaymentCurrency(chequeCurrency, chequeExchangeRate, book?.currency_code || documentCurrency.value?.code || currentHomeCashCurrencyCode());
 });
 
 watch(transferCurrency, (currency) => {
-  setExchangeRateValue(transferExchangeRate, transferExchangeRateText, paymentCurrencyRate(currency, paymentCurrencyCode(currency) === "THB" ? 1 : 0), 0);
+  setExchangeRateValue(transferExchangeRate, transferExchangeRateText, paymentCurrencyRate(currency, isHomeCashCurrencyCode(paymentCurrencyCode(currency)) ? 1 : 0), 0);
   // เปลี่ยนสกุล → คำนวณ default "จำนวนรับชำระ" ใหม่เป็นหน่วยของสกุลนั้น (เหมือน KIP)
   if (!hydratingEditDocument.value) {
     transferInputAmount.value = transferInputFromHome(remainingPayment.value);
@@ -3700,15 +3671,15 @@ watch(transferCurrency, (currency) => {
 });
 
 watch(creditCurrency, (currency) => {
-  setExchangeRateValue(creditExchangeRate, creditExchangeRateText, paymentCurrencyRate(currency, paymentCurrencyCode(currency) === "THB" ? 1 : 0), 0);
+  setExchangeRateValue(creditExchangeRate, creditExchangeRateText, paymentCurrencyRate(currency, isHomeCashCurrencyCode(paymentCurrencyCode(currency)) ? 1 : 0), 0);
 });
 
 watch(chequeCurrency, (currency) => {
-  setExchangeRateValue(chequeExchangeRate, chequeExchangeRateText, paymentCurrencyRate(currency, paymentCurrencyCode(currency) === "THB" ? 1 : 0), 0);
+  setExchangeRateValue(chequeExchangeRate, chequeExchangeRateText, paymentCurrencyRate(currency, isHomeCashCurrencyCode(paymentCurrencyCode(currency)) ? 1 : 0), 0);
 });
 
 watch(otherCurrency, (currency) => {
-  setExchangeRateValue(otherCurrencyExchangeRate, otherCurrencyExchangeRateText, paymentCurrencyRate(currency, paymentCurrencyCode(currency) === "THB" ? 1 : 0), 0);
+  setExchangeRateValue(otherCurrencyExchangeRate, otherCurrencyExchangeRateText, paymentCurrencyRate(currency, isHomeCashCurrencyCode(paymentCurrencyCode(currency)) ? 1 : 0), 0);
 });
 
 watch(documentExchangeRate, () => syncExchangeRateText(documentExchangeRate, documentExchangeRateText), { immediate: true });
@@ -4537,7 +4508,7 @@ onMounted(async () => {
       input_credit_card_charge: 0,
       coupon_full_amount: 0,
       inventory_gl_post: "",
-      home_currency: "",
+      home_currency: "LAK",
       currency_exchange_decimal: 2,
       summary_currency_codes: normalizeSummaryCurrencyCodes(paymentMasters.summary_currency_codes || masterOptions.summary_currency_codes),
       ...masterOptions,
@@ -4548,9 +4519,9 @@ onMounted(async () => {
     docFormatCode.value = defaultSaleDocFormatCode();
     documentCurrency.value = defaultDocumentCurrency();
     setExchangeRateValue(documentExchangeRate, documentExchangeRateText, documentCurrency.value?.exchange_rate_present, 1);
-    applyPaymentCurrency(transferCurrency, transferExchangeRate, documentCurrency.value?.code || "THB");
-    applyPaymentCurrency(creditCurrency, creditExchangeRate, documentCurrency.value?.code || "THB");
-    applyPaymentCurrency(chequeCurrency, chequeExchangeRate, documentCurrency.value?.code || "THB");
+    applyPaymentCurrency(transferCurrency, transferExchangeRate, documentCurrency.value?.code || currentHomeCashCurrencyCode());
+    applyPaymentCurrency(creditCurrency, creditExchangeRate, documentCurrency.value?.code || currentHomeCashCurrencyCode());
+    applyPaymentCurrency(chequeCurrency, chequeExchangeRate, documentCurrency.value?.code || currentHomeCashCurrencyCode());
     if (String(route.query.doc_no || "").trim()) await loadShippingLabelOptions();
     else await autoFillShipmentFromCustomerMaster();
     await refreshCustomerCredit();
@@ -5354,7 +5325,7 @@ function resetPaymentFormState() {
   setCashAmountFromBaht(0, defaultCashCurrencyCode.value);
   transferInputAmount.value = 0;
   transferCurrency.value = defaultDocumentCurrency();
-  setExchangeRateValue(transferExchangeRate, transferExchangeRateText, paymentCurrencyRate(transferCurrency.value, paymentCurrencyCode(transferCurrency.value) === "THB" ? 1 : 0), 0);
+  setExchangeRateValue(transferExchangeRate, transferExchangeRateText, paymentCurrencyRate(transferCurrency.value, isHomeCashCurrencyCode(paymentCurrencyCode(transferCurrency.value)) ? 1 : 0), 0);
   transferPassBook.value = null;
   transferDate.value = todayISO();
   transferChargePercent.value = 0;
@@ -5362,7 +5333,7 @@ function resetPaymentFormState() {
   creditTransferApprovalRemark.value = "";
   creditInputAmount.value = 0;
   creditCurrency.value = defaultDocumentCurrency();
-  setExchangeRateValue(creditExchangeRate, creditExchangeRateText, paymentCurrencyRate(creditCurrency.value, paymentCurrencyCode(creditCurrency.value) === "THB" ? 1 : 0), 0);
+  setExchangeRateValue(creditExchangeRate, creditExchangeRateText, paymentCurrencyRate(creditCurrency.value, isHomeCashCurrencyCode(paymentCurrencyCode(creditCurrency.value)) ? 1 : 0), 0);
   creditType.value = null;
   creditCardNumber.value = "";
   creditApprovalNo.value = "";
@@ -5371,7 +5342,7 @@ function resetPaymentFormState() {
   chequeDueDate.value = todayISO();
   chequeAmount.value = 0;
   chequeCurrency.value = defaultDocumentCurrency();
-  setExchangeRateValue(chequeExchangeRate, chequeExchangeRateText, paymentCurrencyRate(chequeCurrency.value, paymentCurrencyCode(chequeCurrency.value) === "THB" ? 1 : 0), 0);
+  setExchangeRateValue(chequeExchangeRate, chequeExchangeRateText, paymentCurrencyRate(chequeCurrency.value, isHomeCashCurrencyCode(paymentCurrencyCode(chequeCurrency.value)) ? 1 : 0), 0);
   pettyCashAccount.value = null;
   pettyCashAmount.value = 0;
   depositDoc.value = null;
@@ -5427,7 +5398,7 @@ function hydratePaymentFormStateFromEntries(entries = []) {
 
   if (cashEntry) {
     const details = cashEntry.details || {};
-    cashCurrencyCode.value = normalizeCashCurrencyCode(details.currency_code || "THB");
+    cashCurrencyCode.value = normalizeCashCurrencyCode(details.currency_code || currentHomeCashCurrencyCode());
     cashExchangeRate.value = toNumber(details.exchange_rate, 1) || 1;
     cashCurrencyAmount.value = toNumber(details.currency_amount, cashEntry.amount);
     cashInputAmount.value = rnd(cashEntry.amount);
@@ -5457,7 +5428,7 @@ function hydratePaymentFormStateFromEntries(entries = []) {
         : null);
     transferDate.value = String(details.transfer_date || details.chq_due_date || details.doc_date_ref || todayISO()).slice(0, 10) || todayISO();
     transferInputAmount.value = rnd(transferEntry.amount);
-    applyPaymentCurrency(transferCurrency, transferExchangeRate, details.currency_code || transferPassBook.value?.currency_code || "THB");
+    applyPaymentCurrency(transferCurrency, transferExchangeRate, details.currency_code || transferPassBook.value?.currency_code || currentHomeCashCurrencyCode());
     setExchangeRateValue(transferExchangeRate, transferExchangeRateText, details.exchange_rate, transferExchangeRate.value);
   }
 
@@ -5475,7 +5446,7 @@ function hydratePaymentFormStateFromEntries(entries = []) {
     creditCardNumber.value = String(details.card_number || details.trans_number || "").trim();
     creditApprovalNo.value = String(details.no_approved || "").trim();
     creditInputAmount.value = rnd(creditEntry.amount);
-    applyPaymentCurrency(creditCurrency, creditExchangeRate, details.currency_code || creditType.value?.currency_code || "THB");
+    applyPaymentCurrency(creditCurrency, creditExchangeRate, details.currency_code || creditType.value?.currency_code || currentHomeCashCurrencyCode());
     setExchangeRateValue(creditExchangeRate, creditExchangeRateText, details.exchange_rate, creditExchangeRate.value);
   }
 
@@ -5496,7 +5467,7 @@ function hydratePaymentFormStateFromEntries(entries = []) {
     chequeNumber.value = String(details.trans_number || "").trim();
     chequeDueDate.value = String(details.chq_due_date || details.transfer_date || details.doc_date_ref || todayISO()).slice(0, 10) || todayISO();
     chequeAmount.value = rnd(chequeEntry.amount);
-    applyPaymentCurrency(chequeCurrency, chequeExchangeRate, details.currency_code || chequePassBook.value?.currency_code || "THB");
+    applyPaymentCurrency(chequeCurrency, chequeExchangeRate, details.currency_code || chequePassBook.value?.currency_code || currentHomeCashCurrencyCode());
     setExchangeRateValue(chequeExchangeRate, chequeExchangeRateText, details.exchange_rate, chequeExchangeRate.value);
   }
 
@@ -5752,7 +5723,7 @@ async function hydrateHeaderFromDetail(detail = {}, targetDocNo = "") {
   sendDate.value = detailDate(header.send_date, docDate.value);
   deliveryDate.value = detailDate(header.delivery_date, docDate.value);
   transportType.value = optionByCode(shipmentTransportTypeOptions.value, header.transport_code) || optionByCode(transportTypes.value, header.transport_code);
-  documentCurrency.value = currencyOptionByCode(header.currency_code || "THB");
+  documentCurrency.value = currencyOptionByCode(header.currency_code || currentHomeCashCurrencyCode());
   setExchangeRateValue(documentExchangeRate, documentExchangeRateText, header.exchange_rate, documentCurrency.value?.exchange_rate_present || 1);
   roundedAmount.value = toNumber(header.total_income_amount);
   vatSaleDescription.value = String(header.remark || "").trim();
@@ -6132,6 +6103,7 @@ function salePolicyPayloadForLines(lines = []) {
     vat_type: vatType.value,
     vat_rate: toNumber(vatRate.value, 7),
     currency_code: documentCurrency.value?.code || "",
+    home_currency: masterHomeCurrencyCode.value,
     exchange_rate: documentExchangeRateValue(),
     items: salePolicyItemsFromLines(lines),
   };
@@ -8598,7 +8570,7 @@ function creditTransferRemarkText() {
     .filter(Boolean)
     .join("-");
   const chargePercent = Math.max(0, toNumber(transferChargePercent.value));
-  const chargeCurrencyCode = transferCurrencyCode.value || "THB";
+  const chargeCurrencyCode = transferCurrencyCode.value || currentHomeCashCurrencyCode();
   const chargeCurrencyAmount = transferChargeInCurrency.value;
   const chargeCurrencyText =
     chargeCurrencyAmount > 0 ? ` = ${isKipCashCurrencyCode(chargeCurrencyCode) ? formatQty(chargeCurrencyAmount) : formatCurrency(chargeCurrencyAmount)} ${chargeCurrencyCode}` : "";
@@ -8618,11 +8590,11 @@ function addTransfer(entryType = "transfer") {
   const accountNumber = passBookAccountNumber(transferPassBook.value);
   const currencyCode = transferCurrencyCode.value || String(transferPassBook.value.currency_code || "").trim();
   const kipTransfer = isKipCashCurrencyCode(currencyCode);
-  const exchangeRate = currencyCode && currencyCode !== "THB" ? transferRate.value : 1;
+  const exchangeRate = currencyCode && !isHomeCashCurrencyCode(currencyCode) ? transferRate.value : 1;
   if (exchangeRate <= 0) return;
   const entryAmount = kipTransfer ? transferAmount : amount;
   const detailSumAmount = kipTransfer ? transferAmount : amount;
-  const sumAmount2 = currencyCode && currencyCode !== "THB" ? (kipTransfer ? amount : transferAmount) : 0;
+  const sumAmount2 = currencyCode && !isHomeCashCurrencyCode(currencyCode) ? (kipTransfer ? amount : transferAmount) : 0;
   const creditRemark = isCreditCardTransfer ? creditTransferRemarkText() : "";
   const transferId = makeLineId();
   const chargeId = chargeAmount > 0 ? makeLineId() : "";
@@ -8688,11 +8660,11 @@ function addCredit() {
   const chargeRate = creditType.value?.charge_rate_word ?? creditType.value?.charge_rate;
   const charge = toNumber(paymentMasterOptions.value.input_credit_card_charge) === 1 ? 0 : calcPaymentCharge(amount, chargeRate);
   const currencyCode = creditCurrencyCode.value || String(creditType.value?.currency_code || "").trim();
-  const exchangeRate = currencyCode && currencyCode !== "THB" ? creditRate.value : 1;
+  const exchangeRate = currencyCode && !isHomeCashCurrencyCode(currencyCode) ? creditRate.value : 1;
   if (exchangeRate <= 0) return;
   const sumAmount = rnd(amount + charge);
-  const sumAmount2 = currencyCode && currencyCode !== "THB" ? rnd(sumAmount * exchangeRate) : sumAmount;
-  const charge2 = currencyCode && currencyCode !== "THB" ? rnd(charge * exchangeRate) : charge;
+  const sumAmount2 = currencyCode && !isHomeCashCurrencyCode(currencyCode) ? rnd(sumAmount * exchangeRate) : sumAmount;
+  const charge2 = currencyCode && !isHomeCashCurrencyCode(currencyCode) ? rnd(charge * exchangeRate) : charge;
   paymentEntries.value.push({
     id: makeLineId(),
     type: "credit",
@@ -8724,10 +8696,10 @@ function addCheque() {
   const amount = toNumber(chequeAmount.value);
   if (amount <= 0 || !chequeNumber.value || !chequePassBook.value) return;
   const currencyCode = chequeCurrencyCode.value || String(chequePassBook.value?.currency_code || "").trim();
-  const exchangeRate = currencyCode && currencyCode !== "THB" ? chequeRate.value : 1;
+  const exchangeRate = currencyCode && !isHomeCashCurrencyCode(currencyCode) ? chequeRate.value : 1;
   if (exchangeRate <= 0) return;
   const passBookCode = chequePassBook.value.book_code || chequePassBook.value.pass_book_code || chequePassBook.value.code || "";
-  const sumAmount2 = currencyCode && currencyCode !== "THB" ? rnd(amount * exchangeRate) : amount;
+  const sumAmount2 = currencyCode && !isHomeCashCurrencyCode(currencyCode) ? rnd(amount * exchangeRate) : amount;
   paymentEntries.value.push({
     id: makeLineId(),
     type: "cheque",
@@ -8756,7 +8728,7 @@ function addPettyCash() {
   if (amount <= 0 || !pettyCashAccount.value) return;
   const currencyCode = String(pettyCashAccount.value.currency_code || "").trim();
   const exchangeRate = masterCurrencyRate(currencyCode, 1) || 1;
-  const sumAmount2 = currencyCode && currencyCode !== "THB" ? rnd(amount * exchangeRate) : amount;
+  const sumAmount2 = currencyCode && !isHomeCashCurrencyCode(currencyCode) ? rnd(amount * exchangeRate) : amount;
   paymentEntries.value.push({
     id: makeLineId(),
     type: "petty",
@@ -8863,7 +8835,7 @@ function upsertAutoCashPaymentForSignedNonCash() {
     label: "à¹€à¸‡à¸´à¸™à¸ªà¸”",
     amount,
     details: {
-      currency_code: "THB",
+      currency_code: currentHomeCashCurrencyCode(),
       currency_name: "à¸šà¸²à¸—",
       currency_amount: amount,
       exchange_rate: 1,
@@ -9315,7 +9287,9 @@ function resetLaoQrPaymentState({ clearActive = true, closeDialog = true } = {})
 
 function syncLaoQrAmountFromRate() {
   if (laoQrUiLocked.value) return;
-  const multiplier = toNumber(String(laoQrCurrency.value?.name_2 || "").replace(/,/g, ""), 0);
+  const multiplier = isHomeCashCurrencyCode(laoQrCurrencyCode.value)
+    ? 1
+    : toNumber(String(laoQrCurrency.value?.name_2 || "").replace(/,/g, ""), 0);
   laoQrAmountLak.value = multiplier > 0 && laoQrBaseDue.value > 0 ? Math.max(1, Math.round(laoQrBaseDue.value * multiplier)) : 0;
 }
 
@@ -9626,7 +9600,7 @@ async function createLaoQr() {
       amount_lak: draft.amount_lak,
       uuid: draft.uuid,
       invoiceid: draft.invoiceid,
-      desc: "Santipab QR",
+      desc: "NextStep POS QR",
       expire: QR_PAYMENT_COUNTDOWN_SECONDS / 60,
       shopcode: laoQrConfig.value?.shopcode || "",
       terminalid: selectedPos.machinecode || selectedPos.pos_id || posStore.posId || "",
@@ -10489,7 +10463,7 @@ function applyServerTotalsToBody(body, serverTotals = {}) {
           {
             ...body.cash_detail[0],
             amount: totalNetAmount,
-            currency_amount: String(body.cash_detail[0].currency_code || "THB").toUpperCase() === "THB" ? totalNetAmount : body.cash_detail[0].currency_amount,
+            currency_amount: isHomeCashCurrencyCode(body.cash_detail[0].currency_code) ? totalNetAmount : body.cash_detail[0].currency_amount,
           },
         ]
       : body.cash_detail;
@@ -10635,7 +10609,6 @@ async function persistSaveSnapshot(snapshot, confirmations = [], creditApprove =
   if (result?.success) {
     successDocNo.value = result.doc_no;
     syncCustomerDisplayState();
-    void playThankYouAudioAfterSaleSave();
     void openCashDrawerAfterCashPayment(snapshot.body);
     void printReceiptAfterSave(result.doc_no, result.form_code);
     if (!paymentDialogVisible.value) {
@@ -12461,7 +12434,7 @@ function backToSaleDetail() {
           <div class="payment-dialog-title">
             <small>{{ t("sell.amountToPay") }}</small>
             <strong
-              ><span style="color: #e87e2c">{{ formatCurrency(totalDue) }}</span> <em>{{ t("sell.baht") }}</em></strong
+              ><span style="color: #0284c7">{{ formatCurrency(totalDue) }}</span> <em>{{ t("sell.baht") }}</em></strong
             >
           </div>
           <div class="payment-dialog-header-metrics">
@@ -12814,9 +12787,9 @@ function backToSaleDetail() {
             </section>
             <div v-if="isForeignTransferCurrency">
               <i class="pi pi-info-circle transfer-info-icon" />
-              <span style="margin-left: 0.5rem">{{ tl("ยอด Charge (THB)", "Charge (THB)", "ຍອດ Charge (THB)") }}</span>
+              <span style="margin-left: 0.5rem">{{ tl("ยอด Charge", "Charge", "ຍອດ Charge") }} ({{ masterHomeCurrencyCode }})</span>
               <b style="margin-left: 0.5rem">{{ formatCurrency(transferChargeAmount) }}</b>
-              <span style="margin-left: 0.5rem">{{ tl("ยอดรับเงินโอน (THB)", "Transfer amount (THB)", "ຍອດໂອນ (THB)") }}</span>
+              <span style="margin-left: 0.5rem">{{ tl("ยอดรับเงินโอน", "Transfer amount", "ຍອດໂອນ") }} ({{ masterHomeCurrencyCode }})</span>
               <b style="margin-left: 0.5rem">{{ formatCurrency(transferReceivedThbAmount) }}</b>
             </div>
             <div class="transfer-add-row">
@@ -12958,9 +12931,9 @@ function backToSaleDetail() {
             </section>
             <div v-if="isForeignTransferCurrency">
               <i class="pi pi-info-circle transfer-info-icon" />
-              <span style="margin-left: 0.5rem">{{ tl("ยอด Charge (THB)", "Charge (THB)", "ຍອດ Charge (THB)") }}</span>
+              <span style="margin-left: 0.5rem">{{ tl("ยอด Charge", "Charge", "ຍອດ Charge") }} ({{ masterHomeCurrencyCode }})</span>
               <b style="margin-left: 0.5rem">{{ formatCurrency(transferChargeAmount) }}</b>
-              <span style="margin-left: 0.5rem">{{ tl("ยอดรับ (THB)", "Amount (THB)", "ຍອດ (THB)") }}</span>
+              <span style="margin-left: 0.5rem">{{ tl("ยอดรับ", "Amount", "ຍອດ") }} ({{ masterHomeCurrencyCode }})</span>
               <b style="margin-left: 0.5rem">{{ formatCurrency(transferReceivedThbAmount) }}</b>
             </div>
             <div class="transfer-add-row">
@@ -13404,7 +13377,7 @@ function backToSaleDetail() {
                 </div>
               </div>
               <label class="field col-12 md:col-4">
-                <span>{{ tl("ยอดคงเหลือ (บาท)", "Remaining amount (THB)", "ຍອດຄົງເຫຼືອ (THB)") }}</span>
+                <span>{{ tl("ยอดคงเหลือ", "Remaining amount", "ຍອດຄົງເຫຼືອ") }} ({{ masterHomeCurrencyCode }})</span>
                 <InputNumber :model-value="laoQrBaseDue" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" disabled />
               </label>
               <label class="field col-12 md:col-4">
@@ -13419,7 +13392,7 @@ function backToSaleDetail() {
               </label>
 
               <label class="field col-12 md:col-4">
-                <span>{{ tl("ยอดรับชำระ (บาท)", "Payment amount (THB)", "ຍອດຮັບຊຳລະ (THB)") }}</span>
+                <span>{{ tl("ยอดรับชำระ", "Payment amount", "ຍອດຮັບຊຳລະ") }} ({{ masterHomeCurrencyCode }})</span>
                 <InputNumber :model-value="laoQrPaymentThb" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" disabled />
               </label>
 
@@ -13702,7 +13675,7 @@ function backToSaleDetail() {
                 />
               </div>
               <div v-if="!cashPaidCurrencyRows.length" class="payment-row calculated-payment-row">
-                <span class="payment-row-icon" style="background: #fff7ed; color: #e87e2c">
+                <span class="payment-row-icon" style="background: #eff6ff; color: #0284c7">
                   <i class="pi pi-money-bill" />
                 </span>
                 <div>
@@ -13970,7 +13943,7 @@ function backToSaleDetail() {
             <div class="doc-footer-block doc-footer-summary-block" data-font-zone="summary-totals">
               <div class="panel-title compact">
                 <i class="pi pi-calculator" />
-                <strong>{{ t("sell.summaryBaht") }}</strong>
+                <strong>{{ t("sell.netAmount") }} ({{ masterHomeCurrencyCode }})</strong>
               </div>
               <label class="field">
                 <span>{{ t("sell.billDiscount") }}</span>
@@ -14066,13 +14039,13 @@ function backToSaleDetail() {
                       <div class="ph-text">
                         <strong>{{ t("payment.cash") }} ({{ row.code }})</strong>
                         <span
-                          >{{ formatQty(row.amount) }} {{ row.label }}<template v-if="row.code !== 'THB'"> × {{ formatQty(row.rate) }}</template></span
+                          >{{ formatQty(row.amount) }} {{ row.label }}<template v-if="!isHomeCashCurrencyCode(row.code)"> × {{ formatQty(row.rate) }}</template></span
                         >
                       </div>
                       <strong class="ph-amount">{{ formatCurrency(row.homeAmount) }}</strong>
                     </div>
                     <div v-if="!cashPaidCurrencyRows.length" class="payment-history-entry">
-                      <span class="ph-icon" style="background: #fff7ed; color: #e87e2c"><i class="pi pi-money-bill" /></span>
+                      <span class="ph-icon" style="background: #eff6ff; color: #0284c7"><i class="pi pi-money-bill" /></span>
                       <div class="ph-text">
                         <strong>{{ t("payment.cash") }}</strong>
                       </div>
@@ -15419,25 +15392,25 @@ function backToSaleDetail() {
   --sale-control-height: calc(2.5rem * var(--sale-density-scale));
   --sale-line-cell-y: calc(0.45rem * var(--sale-density-scale));
   --sale-line-cell-x: calc(0.5rem * var(--sale-density-scale));
-  --sale-page-bg: #fff7ed;
+  --sale-page-bg: #eff6ff;
   --sale-card-bg: #ffffff;
-  --sale-card-muted: #fffaf5;
-  --sale-border: #fed7aa;
-  --sale-border-strong: #fb923c;
+  --sale-card-muted: #f8fbff;
+  --sale-border: #bae6fd;
+  --sale-border-strong: #38bdf8;
   --sale-text: #1f2937;
-  --sale-muted: #7c5740;
-  --sale-primary: #f15a00;
-  --sale-primary-2: #fb923c;
-  --sale-primary-soft: #fff4e8;
-  --sale-primary-border: #fdba74;
+  --sale-muted: #475569;
+  --sale-primary: #0284c7;
+  --sale-primary-2: #38bdf8;
+  --sale-primary-soft: #f0f9ff;
+  --sale-primary-border: #7dd3fc;
   --sale-accent: #2e7d32;
   --sale-accent-soft: #f0fdf4;
   --sale-success: #2e7d32;
-  --sale-warning: #ea580c;
-  --sale-warning-soft: #fff7ed;
+  --sale-warning: #0284c7;
+  --sale-warning-soft: #eff6ff;
   --sale-danger: #b42318;
   --sale-net: #2e7d32;
-  --sale-gradient: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  --sale-gradient: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   --sale-gradient-soft: linear-gradient(135deg, rgba(255, 138, 0, 0.16), rgba(255, 61, 0, 0.12));
   --sale-shadow: 0 10px 28px rgba(249, 115, 22, 0.12);
   --app-panel-bg: var(--sale-card-bg);
@@ -15446,7 +15419,7 @@ function backToSaleDetail() {
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--sale-gap);
   height: 100dvh;
-  background: linear-gradient(180deg, #fff7ed 0%, #fffaf5 38%, #ffffff 100%);
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 38%, #ffffff 100%);
   color: var(--sale-text);
   font-size: calc(17.5px * var(--sale-font-scale));
   line-height: 1.45;
@@ -15524,16 +15497,16 @@ function backToSaleDetail() {
 
 :global(.held-bill-dialog.p-dialog) {
   overflow: hidden;
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 16px;
-  background: #fff8ef;
+  background: #f8fbff;
   box-shadow: 0 24px 70px rgba(88, 38, 10, 0.22);
 }
 
 :global(.held-bill-dialog.p-dialog .p-dialog-header) {
   padding: 1.15rem 1.35rem 0.85rem;
-  border-bottom: 1px solid #f4d2b6;
-  background: linear-gradient(180deg, #fffaf5 0%, #fff3e8 100%);
+  border-bottom: 1px solid #bfdbfe;
+  background: linear-gradient(180deg, #f8fbff 0%, #fff3e8 100%);
 }
 
 :global(.held-bill-dialog.p-dialog .p-dialog-title) {
@@ -15544,13 +15517,13 @@ function backToSaleDetail() {
 
 :global(.held-bill-dialog.p-dialog .p-dialog-content) {
   padding: 1rem 1.15rem;
-  background: linear-gradient(180deg, #fffaf5 0%, #fff8ef 100%);
+  background: linear-gradient(180deg, #f8fbff 0%, #f8fbff 100%);
 }
 
 :global(.held-bill-dialog.p-dialog .p-dialog-footer) {
   padding: 0.85rem 1.15rem 1rem;
-  border-top: 1px solid #f4d2b6;
-  background: #fff8ef;
+  border-top: 1px solid #bfdbfe;
+  background: #f8fbff;
 }
 
 .held-bill-dialog-body {
@@ -15564,7 +15537,7 @@ function backToSaleDetail() {
   align-items: center;
   gap: 0.75rem;
   padding: 0.85rem 1rem;
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 10px 24px rgba(249, 115, 22, 0.08);
@@ -15607,7 +15580,7 @@ function backToSaleDetail() {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.9rem;
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
   background: #ffffff;
   padding: 0.8rem 0.9rem;
@@ -15667,7 +15640,7 @@ function backToSaleDetail() {
 }
 
 .held-bill-item .held-bill-employee {
-  color: #9a3412;
+  color: #075985;
   font-weight: 900;
 }
 
@@ -15696,7 +15669,7 @@ function backToSaleDetail() {
 .header-actions :deep(.p-button-secondary.p-button-outlined) {
   border-color: var(--sale-border);
   background: rgba(255, 255, 255, 0.78);
-  color: #9a3412;
+  color: #075985;
   box-shadow: 0 6px 14px rgba(249, 115, 22, 0.08);
 }
 
@@ -15722,9 +15695,9 @@ function backToSaleDetail() {
 }
 
 .header-meta-pills span.warning {
-  border-color: color-mix(in srgb, var(--p-orange-500) 38%, var(--p-surface-border));
-  background: #fff7ed;
-  color: var(--p-orange-700);
+  border-color: color-mix(in srgb, var(--p-blue-500) 38%, var(--p-surface-border));
+  background: #eff6ff;
+  color: var(--p-blue-700);
 }
 
 .cash-currency-name2 {
@@ -15782,7 +15755,7 @@ function backToSaleDetail() {
   align-items: center;
   justify-content: center;
   gap: 0.14rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 10px;
   background: #ffffff;
   color: #1f2937;
@@ -15845,7 +15818,7 @@ function backToSaleDetail() {
 }
 
 .workspace-tabs button b.warning {
-  background: #d97706;
+  background: #0369a1;
 }
 
 .workspace-tabs button b.success {
@@ -16062,11 +16035,11 @@ function backToSaleDetail() {
   border: 1px solid var(--sale-border);
   border-radius: 10px;
   padding: 0.75rem;
-  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
 .doc-footer-remark-block {
-  background: linear-gradient(180deg, #fffaf5 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
 }
 
 .doc-footer-remark-block :deep(textarea) {
@@ -16104,7 +16077,7 @@ function backToSaleDetail() {
 .doc-footer-summary-block {
   position: static;
   flex: 0 0 auto;
-  border-color: #fdba74;
+  border-color: #7dd3fc;
   background: #ffffff;
   box-shadow: 0 14px 28px rgba(249, 115, 22, 0.12);
 }
@@ -16113,7 +16086,7 @@ function backToSaleDetail() {
   flex: 0 0 auto;
   display: grid;
   gap: 0.65rem;
-  border-color: #fdba74;
+  border-color: #7dd3fc;
   background: #ffffff;
 }
 
@@ -16144,7 +16117,7 @@ function backToSaleDetail() {
   gap: 0.75rem;
   align-items: baseline;
   padding: 0.45rem 0;
-  border-top: 1px dashed #fed7aa;
+  border-top: 1px dashed #bae6fd;
 }
 
 .sale-benefit-compact-list span,
@@ -16186,7 +16159,7 @@ function backToSaleDetail() {
 
 .summary-list.compact > div {
   padding: 0.45rem 0;
-  border-bottom: 1px dashed #fed7aa;
+  border-bottom: 1px dashed #bae6fd;
 }
 
 .summary-list.compact > div:last-child {
@@ -16324,8 +16297,8 @@ function backToSaleDetail() {
 
 .send-type-select :deep(.p-togglebutton.p-togglebutton-checked),
 .send-type-select :deep(.p-selectbutton .p-togglebutton.p-togglebutton-checked) {
-  background: #e87e2c;
-  border-color: #e87e2c;
+  background: #0284c7;
+  border-color: #0284c7;
   color: #ffffff;
 }
 
@@ -16444,7 +16417,7 @@ function backToSaleDetail() {
   padding: 0.36rem 0.6rem;
   border: 1px solid var(--sale-primary-border);
   border-radius: 8px;
-  background: linear-gradient(180deg, #fff7ed 0%, #fffdf8 100%);
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
 }
 
 .status-total span,
@@ -16500,7 +16473,7 @@ function backToSaleDetail() {
 }
 
 .status-state.warning {
-  border-color: #fed7aa;
+  border-color: #bae6fd;
   background: var(--sale-warning-soft);
   color: var(--sale-warning);
 }
@@ -16620,7 +16593,7 @@ function backToSaleDetail() {
 .field :deep(.p-select),
 .tool-input :deep(.p-inputtext) {
   border-color: var(--sale-border);
-  background: linear-gradient(180deg, #ffffff 0%, #fffdf8 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   color: var(--sale-text);
   width: 100%;
 }
@@ -16729,7 +16702,7 @@ function backToSaleDetail() {
 }
 
 .mini-row.warning {
-  color: var(--p-orange-600);
+  color: var(--p-blue-600);
 }
 
 .lookup-hint {
@@ -16787,7 +16760,7 @@ function backToSaleDetail() {
   padding: 0 0.4rem;
   margin-left: auto;
   border-radius: 10px;
-  background: var(--p-orange-500);
+  background: var(--p-blue-500);
   color: white;
   font-size: 0.7rem;
   font-weight: 700;
@@ -16943,7 +16916,7 @@ function backToSaleDetail() {
   border-radius: 6px;
   padding: 0.75rem;
   margin-bottom: 0.75rem;
-  border-left: 4px solid var(--p-orange-500);
+  border-left: 4px solid var(--p-blue-500);
 }
 
 .advance-readonly-note p {
@@ -17131,10 +17104,10 @@ function backToSaleDetail() {
   width: 3.25rem;
   height: 3.25rem;
   border-radius: 8px;
-  background: #ffedd5;
-  color: #f97316;
+  background: #dbeafe;
+  color: #0ea5e9;
   font-size: 1.45rem;
-  box-shadow: inset 0 0 0 1px #fed7aa;
+  box-shadow: inset 0 0 0 1px #bae6fd;
 }
 
 .product-search-header-text {
@@ -17172,7 +17145,7 @@ function backToSaleDetail() {
   position: absolute;
   z-index: 1;
   left: 1rem;
-  color: #f97316;
+  color: #0ea5e9;
   font-size: 1.15rem;
   pointer-events: none;
 }
@@ -17181,7 +17154,7 @@ function backToSaleDetail() {
   width: 100%;
   min-height: 3.25rem;
   padding-left: 3rem;
-  border-color: #fb923c;
+  border-color: #38bdf8;
   border-radius: 8px;
   font-size: 1.16rem;
   box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.08);
@@ -17192,7 +17165,7 @@ function backToSaleDetail() {
   min-height: 3.25rem;
   border-color: transparent;
   border-radius: 8px;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff4d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   font-size: 1.08rem;
   font-weight: 900;
   box-shadow: 0 10px 20px rgba(249, 115, 22, 0.22);
@@ -17325,7 +17298,7 @@ function backToSaleDetail() {
   padding: 0;
   border: 1px solid var(--sale-border);
   border-radius: 0.6rem;
-  background: #fffaf5;
+  background: #f8fbff;
   color: var(--sale-muted);
   display: inline-flex;
   align-items: center;
@@ -17351,7 +17324,7 @@ function backToSaleDetail() {
 }
 
 .line-image-button.is-empty {
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .line-image-preview-wrap {
@@ -17455,7 +17428,7 @@ function backToSaleDetail() {
 }
 
 .is-active > td {
-  background: var(--sale-primary-soft, #fff7ed);
+  background: var(--sale-primary-soft, #eff6ff);
 }
 
 /* สินค้าชุด (item_type=3): badge บนชื่อ + แถบไฮไลท์เบาๆ ของ parent + child rows */
@@ -17467,7 +17440,7 @@ function backToSaleDetail() {
   padding: 0.08rem 0.4rem;
   border-radius: 4px;
   background: rgba(249, 115, 22, 0.14);
-  color: #c2410c;
+  color: #0369a1;
   font-size: 0.7rem;
   font-weight: 600;
   white-space: nowrap;
@@ -17483,7 +17456,7 @@ function backToSaleDetail() {
 }
 
 .row-set-children > td {
-  background: #fffaf5;
+  background: #f8fbff;
   border-top: 0;
   padding-top: 0.25rem;
   padding-bottom: 0.5rem;
@@ -17648,7 +17621,7 @@ function backToSaleDetail() {
 
 .bill-discount-button:hover:not(:disabled) {
   border-color: var(--sale-primary-border);
-  background: #fff7ed;
+  background: #eff6ff;
   color: var(--sale-primary);
 }
 
@@ -17691,7 +17664,7 @@ function backToSaleDetail() {
   gap: 0.35rem;
   border: 1px solid rgba(255, 106, 0, 0.28);
   border-radius: 8px;
-  background: #fffaf5;
+  background: #f8fbff;
   color: var(--sale-primary);
   cursor: pointer;
   font-size: var(--sale-font-base);
@@ -17813,7 +17786,7 @@ function backToSaleDetail() {
   gap: 0.75rem;
   align-items: center;
   padding: 0.75rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
   background: linear-gradient(90deg, rgba(255, 247, 237, 0.9) 0%, #ffffff 70%);
 }
@@ -17824,8 +17797,8 @@ function backToSaleDetail() {
   height: 2.65rem;
   place-items: center;
   border-radius: 8px;
-  background: #ffedd5;
-  color: #f97316;
+  background: #dbeafe;
+  color: #0ea5e9;
   font-size: 1.2rem;
 }
 
@@ -17886,7 +17859,7 @@ function backToSaleDetail() {
   min-height: 2.75rem;
   border-color: transparent;
   border-radius: 8px;
-  background: linear-gradient(135deg, #ff8a00 0%, #ff4d00 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   font-weight: 900;
   box-shadow: 0 10px 20px rgba(249, 115, 22, 0.22);
 }
@@ -17897,7 +17870,7 @@ function backToSaleDetail() {
   gap: 0.9rem;
   align-items: center;
   padding: 0.8rem 0.9rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
   background: linear-gradient(90deg, rgba(255, 247, 237, 0.84) 0%, #ffffff 62%);
   box-shadow: 0 8px 24px rgba(124, 45, 18, 0.05);
@@ -17934,10 +17907,10 @@ function backToSaleDetail() {
   justify-content: center;
   min-width: 4.25rem;
   padding: 0.35rem 0.6rem;
-  border: 1px solid #fb923c;
+  border: 1px solid #38bdf8;
   border-radius: 8px;
-  background: #fff7ed;
-  color: #ea580c;
+  background: #eff6ff;
+  color: #0284c7;
   font-weight: 950;
 }
 
@@ -17964,7 +17937,7 @@ function backToSaleDetail() {
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.75rem;
   align-items: center;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
   background: #ffffff;
   color: var(--sale-text);
@@ -17976,13 +17949,13 @@ function backToSaleDetail() {
 }
 
 .unit-option-row:hover:not(:disabled) {
-  border-color: #fb923c;
-  background: #fffaf5;
+  border-color: #38bdf8;
+  background: #f8fbff;
 }
 
 .unit-option-row.active {
-  border-color: #fb923c;
-  background: linear-gradient(90deg, #fff7ed 0%, #ffffff 74%);
+  border-color: #38bdf8;
+  background: linear-gradient(90deg, #eff6ff 0%, #ffffff 74%);
   box-shadow: 0 14px 30px rgba(249, 115, 22, 0.12);
 }
 
@@ -18004,7 +17977,7 @@ function backToSaleDetail() {
 }
 
 .unit-option-main strong {
-  color: #ea580c;
+  color: #0284c7;
   font-size: 1.08rem;
   font-weight: 950;
 }
@@ -18156,8 +18129,8 @@ function backToSaleDetail() {
 }
 
 .promotion-guide-item.reward {
-  border-color: #fed7aa;
-  background: #fff7ed;
+  border-color: #bae6fd;
+  background: #eff6ff;
 }
 
 .promotion-guide-item strong,
@@ -18240,7 +18213,7 @@ function backToSaleDetail() {
   padding: 0.75rem;
   border: 1px solid var(--sale-border);
   border-radius: 8px;
-  background: #fffaf5;
+  background: #f8fbff;
 }
 
 .sale-benefit-panel {
@@ -18474,7 +18447,7 @@ function backToSaleDetail() {
 .receipt-campaign-panel .promotion-collapse-row,
 .receipt-campaign-panel .promotion-audit-card {
   border-color: #fde68a;
-  background: #fffbeb;
+  background: #f0f9ff;
 }
 
 .promotion-collapse-row > div {
@@ -18597,7 +18570,7 @@ function backToSaleDetail() {
 }
 
 .payment-hero .attention {
-  border-color: #fed7aa;
+  border-color: #bae6fd;
   background: var(--sale-warning-soft);
 }
 
@@ -18761,14 +18734,14 @@ function backToSaleDetail() {
 }
 
 .pay-tabs button.active {
-  border-color: #e87e2c;
-  background: linear-gradient(135deg, #fff4e8 0%, #ffe1c2 100%);
-  color: #e87e2c;
+  border-color: #0284c7;
+  background: linear-gradient(135deg, #f0f9ff 0%, #dbeafe 100%);
+  color: #0284c7;
   font-weight: 800;
 }
 
 .pay-tabs button.active .pay-tab-index {
-  background: #e87e2c;
+  background: #0284c7;
   color: #fff;
 }
 
@@ -18900,9 +18873,9 @@ function backToSaleDetail() {
   display: grid;
   gap: calc(0.75rem * var(--sale-density-scale));
   padding: calc(1rem * var(--sale-density-scale));
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
-  background: linear-gradient(180deg, #fffaf5 0%, rgba(255, 255, 255, 0.92) 100%);
+  background: linear-gradient(180deg, #f8fbff 0%, rgba(255, 255, 255, 0.92) 100%);
 }
 
 .transfer-input-panel h3,
@@ -18911,7 +18884,7 @@ function backToSaleDetail() {
   align-items: center;
   gap: 0.4rem;
   margin: 0;
-  color: #7c5740;
+  color: #475569;
   font-size: var(--sale-font-base);
   font-weight: 950;
 }
@@ -18925,7 +18898,7 @@ function backToSaleDetail() {
 .pay-form-transfer .field small {
   display: block;
   margin-top: 0.3rem;
-  color: #7c5740;
+  color: #475569;
   font-size: var(--sale-font-small);
   font-weight: 700;
 }
@@ -19015,7 +18988,7 @@ function backToSaleDetail() {
 }
 
 .kip-rounding-diff-field :deep(.p-inputnumber-input) {
-  color: #b45309;
+  color: #0369a1;
   font-weight: 950;
 }
 
@@ -19023,7 +18996,7 @@ function backToSaleDetail() {
   width: 100%;
   margin-bottom: 1rem;
   min-height: calc(3.35rem * var(--sale-density-scale));
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 60%, #d97706 100%) !important;
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 60%, #0369a1 100%) !important;
   border: none !important;
   color: #1c1917 !important;
   font-weight: 800 !important;
@@ -19036,7 +19009,7 @@ function backToSaleDetail() {
 }
 
 .kip-auto-rounding-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 60%, #f59e0b 100%) !important;
+  background: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 60%, #0284c7 100%) !important;
   box-shadow:
     0 6px 22px rgba(245, 158, 11, 0.55),
     0 2px 6px rgba(180, 83, 9, 0.25) !important;
@@ -19088,9 +19061,9 @@ function backToSaleDetail() {
   align-items: center;
   gap: 0.75rem;
   padding: 0.85rem 1rem;
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   color: var(--sale-text);
   font-weight: 900;
   cursor: pointer;
@@ -19104,9 +19077,9 @@ function backToSaleDetail() {
 }
 
 .lao-qr-channel-button:hover:not(:disabled) {
-  border-color: #fb923c;
-  background: #fff7ed;
-  color: #ea580c;
+  border-color: #38bdf8;
+  background: #eff6ff;
+  color: #0284c7;
   transform: translateY(-1px);
   box-shadow: 0 14px 26px rgba(249, 115, 22, 0.14);
 }
@@ -19129,8 +19102,8 @@ function backToSaleDetail() {
   height: 2.75rem;
   place-items: center;
   border-radius: 10px;
-  background: #ffedd5;
-  color: #ea580c;
+  background: #dbeafe;
+  color: #0284c7;
   font-size: 1.35rem;
 }
 
@@ -19207,8 +19180,8 @@ function backToSaleDetail() {
 }
 
 .lao-qr-request-item.active {
-  border-color: #fdba74;
-  background: #fff7ed;
+  border-color: #7dd3fc;
+  background: #eff6ff;
 }
 
 .lao-qr-request-main {
@@ -19244,7 +19217,7 @@ function backToSaleDetail() {
 }
 
 .lao-qr-request-warning {
-  color: #b45309;
+  color: #0369a1;
   font-weight: 800;
   line-height: 1.35;
 }
@@ -19273,13 +19246,13 @@ function backToSaleDetail() {
   padding: 0.85rem 1rem;
   border: 1px solid rgba(232, 126, 44, 0.32);
   border-radius: 12px;
-  background: linear-gradient(135deg, #fff7ed 0%, #fff 100%);
+  background: linear-gradient(135deg, #eff6ff 0%, #fff 100%);
   box-shadow: 0 10px 24px rgba(232, 126, 44, 0.12);
   text-align: center;
 }
 
 .lao-qr-dialog-amount-card span {
-  color: #9a3412;
+  color: #075985;
   font-size: 1.15rem;
   font-weight: 900;
 }
@@ -19439,8 +19412,8 @@ function backToSaleDetail() {
   text-align: center;
   border: 1px solid var(--sale-primary-border);
   border-radius: 8px;
-  background: #fff7ed;
-  color: #9a3412;
+  background: #eff6ff;
+  color: #075985;
   font-size: 0.84rem;
   line-height: 1.35;
 }
@@ -19557,7 +19530,7 @@ function backToSaleDetail() {
   gap: 0.75rem;
 
   padding-top: 0.9rem;
-  border-top: 1px solid #fed7aa;
+  border-top: 1px solid #bae6fd;
   color: var(--sale-text);
   font-weight: 900;
 }
@@ -19580,7 +19553,7 @@ function backToSaleDetail() {
   gap: 0.5rem;
   align-items: center;
   padding: 0.65rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
   background: #ffffff;
   margin-bottom: 0.3rem;
@@ -19620,7 +19593,7 @@ function backToSaleDetail() {
   display: grid;
   gap: 0.35rem;
   margin: 0.75rem 0;
-  color: var(--p-orange-600);
+  color: var(--p-blue-600);
   font-size: 0.8rem;
 }
 
@@ -19671,8 +19644,8 @@ function backToSaleDetail() {
 }
 
 .sale-policy-dialog.is-warn .sale-policy-icon {
-  background: #fef3c7;
-  color: #d97706;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .sale-policy-dialog.is-info .sale-policy-icon {
@@ -19763,7 +19736,7 @@ function backToSaleDetail() {
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--sale-border);
   border-radius: 8px;
-  background: #fffaf5;
+  background: #f8fbff;
 }
 
 .sale-item-history-summary span,
@@ -19819,7 +19792,7 @@ function backToSaleDetail() {
   align-items: start;
   padding: 0.75rem 0.9rem;
   border-bottom: 1px solid var(--sale-border);
-  background: #fffaf5;
+  background: #f8fbff;
 }
 
 .sale-price-formula-panel-head > div {
@@ -19940,12 +19913,12 @@ function backToSaleDetail() {
 }
 
 .save-feedback-dialog.is-warn .save-feedback-icon {
-  background: #fef3c7;
-  color: #d97706;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .save-feedback-dialog.is-info .save-feedback-icon {
-  background: #fff7ed;
+  background: #eff6ff;
   color: var(--sale-primary);
 }
 
@@ -20009,15 +19982,15 @@ function backToSaleDetail() {
 .product-result-card {
   flex: 0 0 auto;
   overflow: hidden;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 8px 24px rgba(124, 45, 18, 0.05);
 }
 
 .product-result-card.expanded {
-  border-color: #fb923c;
-  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 28%);
+  border-color: #38bdf8;
+  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 28%);
   box-shadow: 0 14px 30px rgba(249, 115, 22, 0.12);
 }
 
@@ -20039,7 +20012,7 @@ function backToSaleDetail() {
 }
 
 .product-result-row:hover {
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .result-code,
@@ -20056,12 +20029,12 @@ function backToSaleDetail() {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: #ea580c;
+  color: #0284c7;
   font-weight: 950;
 }
 
 .result-code i {
-  color: #f97316;
+  color: #0ea5e9;
   font-size: 0.8rem;
 }
 
@@ -20073,9 +20046,9 @@ function backToSaleDetail() {
   width: 3.7rem;
   height: 3.7rem;
   border-radius: 8px;
-  background: #fff7ed;
-  color: #fb923c;
-  box-shadow: inset 0 0 0 1px #ffedd5;
+  background: #eff6ff;
+  color: #38bdf8;
+  box-shadow: inset 0 0 0 1px #dbeafe;
 }
 
 .result-image img {
@@ -20169,7 +20142,7 @@ function backToSaleDetail() {
   gap: 0.08rem 0.7rem;
   align-items: center;
   padding: 0.78rem 1rem;
-  border: 1px solid #ffedd5;
+  border: 1px solid #dbeafe;
   border-radius: 8px;
   background: #ffffff;
   color: var(--sale-text);
@@ -20179,9 +20152,9 @@ function backToSaleDetail() {
 }
 
 .product-balance-branch-strip button.active {
-  border-color: #fb923c;
-  background: #fff7ed;
-  color: #ea580c;
+  border-color: #38bdf8;
+  background: #eff6ff;
+  color: #0284c7;
   box-shadow: 0 12px 26px rgba(249, 115, 22, 0.14);
 }
 
@@ -20208,8 +20181,8 @@ function backToSaleDetail() {
   width: 1.65rem;
   height: 1.65rem;
   border-radius: 8px;
-  background: #ffedd5;
-  color: #f97316;
+  background: #dbeafe;
+  color: #0ea5e9;
 }
 
 .product-balance-branch-strip small {
@@ -20221,7 +20194,7 @@ function backToSaleDetail() {
 
 .product-balance-table-wrap {
   overflow: hidden;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
@@ -20236,7 +20209,7 @@ function backToSaleDetail() {
 }
 
 .product-balance-panel-title > i {
-  color: #f97316;
+  color: #0ea5e9;
   font-size: 1rem;
 }
 
@@ -20273,7 +20246,7 @@ function backToSaleDetail() {
 }
 
 .product-balance-datatable :deep(.p-datatable-tbody > tr:hover > td) {
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .product-balance-datatable :deep(.p-datatable-tbody > tr > td) {
@@ -20478,25 +20451,25 @@ function backToSaleDetail() {
   --sale-gap: calc(0.5rem * var(--sale-density-scale));
   --sale-panel-padding: calc(0.75rem * var(--sale-density-scale));
   --sale-control-height: calc(2.5rem * var(--sale-density-scale));
-  --sale-page-bg: #fff7ed;
+  --sale-page-bg: #eff6ff;
   --sale-card-bg: #ffffff;
-  --sale-card-muted: #fffaf5;
-  --sale-border: #fed7aa;
-  --sale-border-strong: #fb923c;
+  --sale-card-muted: #f8fbff;
+  --sale-border: #bae6fd;
+  --sale-border-strong: #38bdf8;
   --sale-text: #1f2937;
-  --sale-muted: #7c5740;
-  --sale-primary: #f15a00;
-  --sale-primary-2: #fb923c;
-  --sale-primary-soft: #fff4e8;
-  --sale-primary-border: #fdba74;
+  --sale-muted: #475569;
+  --sale-primary: #0284c7;
+  --sale-primary-2: #38bdf8;
+  --sale-primary-soft: #f0f9ff;
+  --sale-primary-border: #7dd3fc;
   --sale-accent: #2e7d32;
   --sale-accent-soft: #f0fdf4;
   --sale-success: #2e7d32;
-  --sale-warning: #ea580c;
-  --sale-warning-soft: #fff7ed;
+  --sale-warning: #0284c7;
+  --sale-warning-soft: #eff6ff;
   --sale-danger: #b42318;
   --sale-net: #2e7d32;
-  --sale-gradient: linear-gradient(135deg, #ff8a00 0%, #ff3d00 100%);
+  --sale-gradient: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
   --sale-gradient-soft: linear-gradient(135deg, rgba(255, 138, 0, 0.16), rgba(255, 61, 0, 0.12));
   --sale-shadow: 0 10px 28px rgba(249, 115, 22, 0.12);
   --app-panel-bg: var(--sale-card-bg);
@@ -20508,7 +20481,7 @@ function backToSaleDetail() {
   max-height: 100dvh !important;
   margin: 0 !important;
   border-radius: 0 !important;
-  background: #fff8ef !important;
+  background: #f8fbff !important;
   color: var(--sale-text);
   font-size: var(--sale-font-base);
 }
@@ -20521,7 +20494,7 @@ function backToSaleDetail() {
   flex: 0 0 auto;
   padding: calc(0.55rem * var(--sale-density-scale)) calc(1.35rem * var(--sale-density-scale));
   /* border-top: 1px solid #f8d9bd; */
-  background: #fff8ef;
+  background: #f8fbff;
   display: block;
 }
 
@@ -20535,7 +20508,7 @@ function backToSaleDetail() {
   flex: 1 1 auto;
   min-height: 0;
   padding: 0 calc(1.35rem * var(--sale-density-scale)) calc(1.15rem * var(--sale-density-scale));
-  background: linear-gradient(180deg, #fffaf5 0%, #fff6ed 100%);
+  background: linear-gradient(180deg, #f8fbff 0%, #fff6ed 100%);
   overflow: hidden;
 }
 
@@ -20543,7 +20516,7 @@ function backToSaleDetail() {
   flex: 0 0 auto;
   padding: calc(1.35rem * var(--sale-density-scale)) calc(1.55rem * var(--sale-density-scale)) calc(0.9rem * var(--sale-density-scale));
   border-bottom: 0;
-  background: linear-gradient(180deg, #fffaf5 0%, #fff8ef 100%);
+  background: linear-gradient(180deg, #f8fbff 0%, #f8fbff 100%);
 }
 
 .payment-checkout-dialog :deep(.p-dialog) {
@@ -20631,8 +20604,8 @@ function backToSaleDetail() {
 }
 
 .payment-dialog-header-metrics span.due {
-  border-color: #fed7aa;
-  background: #fff7ed;
+  border-color: #bae6fd;
+  background: #eff6ff;
 }
 
 .payment-dialog-header-metrics small {
@@ -20670,7 +20643,7 @@ function backToSaleDetail() {
   min-height: 0;
   overflow: auto;
   padding: calc(0.55rem * var(--sale-density-scale));
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 14px 34px rgba(249, 115, 22, 0.06);
@@ -20753,15 +20726,15 @@ function backToSaleDetail() {
 }
 
 .payment-dialog-methods button.active {
-  border-color: #ff5b0a;
-  background: linear-gradient(135deg, #fff7ed 0%, #fff2e5 100%);
-  color: #e87e2c;
+  border-color: #0ea5e9;
+  background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+  color: #0284c7;
   box-shadow: 0 12px 24px rgba(232, 126, 44, 0.14);
 }
 
 .payment-dialog-methods button.active .method-icon {
   /* background: var(--sale-gradient);
-  color: #e87e2c; */
+  color: #0284c7; */
 }
 
 .payment-dialog-methods button.active .method-amount,
@@ -20777,7 +20750,7 @@ function backToSaleDetail() {
   min-height: 0;
   overflow: auto;
   padding: var(--sale-panel-padding);
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.86);
   box-shadow: 0 14px 34px rgba(249, 115, 22, 0.06);
@@ -20832,7 +20805,7 @@ function backToSaleDetail() {
   min-height: 0;
   overflow: auto;
   padding: var(--sale-panel-padding);
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.86);
   box-shadow: 0 14px 34px rgba(249, 115, 22, 0.06);
@@ -20980,9 +20953,9 @@ function backToSaleDetail() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
   padding: 0.85rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
-  background: #fff7ed;
+  background: #eff6ff;
 }
 
 .coupon-result-card > div {
@@ -20996,7 +20969,7 @@ function backToSaleDetail() {
 }
 
 .coupon-result-card span {
-  color: #9a3412;
+  color: #075985;
   font-size: var(--sale-font-small);
   font-weight: 850;
 }
@@ -21026,7 +20999,7 @@ function backToSaleDetail() {
   gap: calc(1.25rem * var(--sale-density-scale));
   min-height: calc(2.75rem * var(--sale-density-scale));
   padding: calc(0.45rem * var(--sale-density-scale)) calc(0.75rem * var(--sale-density-scale));
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.72);
   color: var(--sale-muted);
@@ -21055,7 +21028,7 @@ function backToSaleDetail() {
 
 .rate-chip {
   padding: 0.35rem 0.65rem;
-  border: 1px solid #f4d2b6;
+  border: 1px solid #bfdbfe;
   border-radius: 8px;
   background: #ffffff;
 }
@@ -21078,7 +21051,7 @@ function backToSaleDetail() {
 .cash-tender-input {
   width: 100%;
   min-height: calc(3.1rem * var(--sale-density-scale));
-  border-color: #ff5b0a !important;
+  border-color: #0ea5e9 !important;
   color: var(--sale-primary) !important;
   font-size: var(--sale-font-title) !important;
   font-weight: 950 !important;
@@ -21088,7 +21061,7 @@ function backToSaleDetail() {
 /* InputNumber ส่ง class ไปที่ input ชั้นใน (PrimeVue render) ที่ไม่มี scoped attr — ใช้ :deep ทะลุ scope */
 .pay-form-transfer :deep(.cash-tender-input) {
   min-height: calc(3.1rem * var(--sale-density-scale));
-  border-color: #ff5b0a !important;
+  border-color: #0ea5e9 !important;
   color: var(--sale-primary) !important;
   font-size: var(--sale-font-title) !important;
   font-weight: 950 !important;
@@ -21166,15 +21139,15 @@ function backToSaleDetail() {
   padding: 0.7rem 0.95rem;
   border: 1px solid #e7c6a9;
   border-radius: 10px;
-  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
   text-align: center;
 }
 
 .cash-currency-tabs-inline button:hover:not(:disabled) {
-  border-color: #fb923c;
-  background: #fff7ed;
-  color: #ea580c;
+  border-color: #38bdf8;
+  background: #eff6ff;
+  color: #0284c7;
   transform: translateY(-1px);
 }
 
@@ -21648,14 +21621,14 @@ function backToSaleDetail() {
 .ref-type-pill[data-type="1"],
 .ref-type-pill[data-type="30"],
 .ref-type-pill[data-type="32"] {
-  background: #ffedd5;
-  color: #9a3412;
+  background: #dbeafe;
+  color: #075985;
 } /* ใบเสนอราคา */
 .ref-type-pill[data-type="2"],
 .ref-type-pill[data-type="34"],
 .ref-type-pill[data-type="37"] {
-  background: #fef3c7;
-  color: #92400e;
+  background: #e0f2fe;
+  color: #075985;
 } /* ใบสั่งจอง */
 .ref-type-pill[data-type="3"],
 .ref-type-pill[data-type="36"] {

@@ -9,6 +9,11 @@ const {
   calculateSaleCurrencyTotals,
   calculateSaleDocumentTotals,
   prepareSaleItemAmounts,
+  normalizeCurrencyCode,
+  homeCurrencyCode,
+  isForeignCurrencyContext,
+  roundLakChange,
+  convertCurrencyToHome,
 } = require('../utils/saleCalculator');
 const { processPosSlipCampaign } = require('../utils/posSlipCampaign');
 const { bangkokTimestamp } = require('../utils/bangkokTime');
@@ -272,6 +277,8 @@ router.get('/getErpOption', async (req, res) => {
       round_type: '0',
       discount_step_round_off: '0',
       currency_exchange_decimal: '2',
+      home_currency: 'LAK',
+      multi_currency: '1',
       ic_stock_control: '0',
       issue_stock_control: '0',
       stock_balance_control: '0',
@@ -1988,21 +1995,26 @@ async function validateCashCurrencyEntries(client, cashEntries, { totalCashAmoun
 
   let normalizedTotal = 0;
   for (const entry of entries) {
-    const currencyCode = asText(entry.currency_code || 'THB', 'THB').toUpperCase();
+    const homeCode = homeCurrencyCode(options);
+    const currencyCode = normalizeCurrencyCode(entry.currency_code, homeCode);
     const foreignAmount = asNumber(entry.currency_amount, asNumber(entry.amount));
 
-    if (!currencyCode || currencyCode === 'THB') {
-      const thbAmount = roundMoney(asNumber(entry.amount, foreignAmount));
-      normalizedTotal += thbAmount;
-      entry.currency_code = 'THB';
+    if (!currencyCode || currencyCode === homeCode) {
+      const homeAmount = roundMoney(asNumber(entry.amount, foreignAmount));
+      normalizedTotal += homeAmount;
+      entry.currency_code = homeCode;
       entry.exchange_rate = 1;
-      entry.amount = thbAmount;
-      entry.currency_amount = foreignAmount > 0 ? foreignAmount : thbAmount;
+      entry.amount = homeAmount;
+      entry.currency_amount = foreignAmount > 0 ? foreignAmount : homeAmount;
       continue;
     }
 
-    if (!options?.multi_currency) {
+    if (!options?.multi_currency && currencyCode !== 'THB') {
       throw userValidationError('ยังไม่ได้เปิดใช้งานระบบหลายสกุลเงิน');
+    }
+
+    if (homeCode === 'LAK' && currencyCode !== 'THB') {
+      throw userValidationError(`Cash currency must be LAK/KIP or THB (${currencyCode})`);
     }
 
     const currency = await loadCurrency(client, currencyCode);
@@ -2013,12 +2025,12 @@ async function validateCashCurrencyEntries(client, cashEntries, { totalCashAmoun
     if (resolvedRate <= 0) throw userValidationError(`สกุลเงิน ${currencyCode} ยังไม่มีอัตราแลกเปลี่ยน`);
     if (foreignAmount <= 0) throw userValidationError(`จำนวนเงินสดสกุล ${currencyCode} ต้องมากกว่า 0`);
 
-    const bahtAmount = roundMoney(foreignAmount * resolvedRate);
-    normalizedTotal += bahtAmount;
+    const homeAmount = roundMoney(convertCurrencyToHome(foreignAmount, resolvedRate, options, currencyCode));
+    normalizedTotal += homeAmount;
     entry.currency_code = currencyCode;
     entry.exchange_rate = resolvedRate;
     entry.currency_amount = foreignAmount;
-    entry.amount = bahtAmount;
+    entry.amount = homeAmount;
   }
 
   normalizedTotal = roundMoney(normalizedTotal);
@@ -2759,6 +2771,8 @@ async function loadSaleCompanyOptions(client) {
   for (const [name, fallback] of Object.entries(booleanDefaults)) {
     selectList.push(columns.has(name) ? `COALESCE(${name}::text, '${fallback ? 1 : 0}') AS ${name}` : `'${fallback ? 1 : 0}' AS ${name}`);
   }
+  selectList.push(columns.has('home_currency') ? "COALESCE(home_currency::text, 'LAK') AS home_currency" : "'LAK' AS home_currency");
+  selectList.push(columns.has('multi_currency') ? "COALESCE(multi_currency::text, '1') AS multi_currency" : "'1' AS multi_currency");
 
   const result = await client.query(`SELECT ${selectList.join(', ')} FROM erp_option LIMIT 1`);
   const row = result.rows[0] || {};
@@ -2769,6 +2783,8 @@ async function loadSaleCompanyOptions(client) {
   };
   const asIntegerOption = (name) => parseInt(asNumber(row[name], numericDefaults[name]), 10) || 0;
   return {
+    home_currency: normalizeCurrencyCode(row.home_currency, 'LAK') || 'LAK',
+    multi_currency: isEnabled('multi_currency', true),
     item_qty_decimal: asIntegerOption('item_qty_decimal'),
     item_price_decimal: asIntegerOption('item_price_decimal'),
     item_amount_decimal: asIntegerOption('item_amount_decimal'),
@@ -5331,7 +5347,7 @@ async function handleSaveTrans(req, res, options = {}) {
         currency_code,
         exchange_rate,
       };
-      const isForeignCurrencyDoc = asText(currency_code).toUpperCase() !== '' && asText(currency_code).toUpperCase() !== 'THB';
+      const isForeignCurrencyDoc = isForeignCurrencyContext(saleCurrencyOptions);
       const promotionDiscountInput = obj.promotion_extra_discount_amount ?? obj.promotion_discount_amount;
       const homePromotionDiscountAmount = isForeignCurrencyDoc
         ? smlRound(asNumber(promotionDiscountInput) * (exchange_rate || 1), salePolicyOptions.item_amount_decimal, salePolicyOptions.round_type)
@@ -5427,6 +5443,12 @@ async function handleSaveTrans(req, res, options = {}) {
       money_change = pay_cash_amount_raw > 0
         ? Math.max(0, pay_cash_amount_raw - cash_amount_in_db)
         : 0;
+      if (homeCurrencyCode(salePolicyOptions) === 'LAK' && money_change > 0) {
+        const roundedChange = roundLakChange(money_change);
+        if (Math.abs(money_change - roundedChange) > 0.01) {
+          throw userValidationError(`LAK change must be rounded down to a 500 LAK unit (${money_change} LAK)`);
+        }
+      }
 
       const posLocationDefaults = await loadPosWarehouseShelfDefaults(client, pos_id);
       const anyPosLocationDefaults = (!asText(posLocationDefaults.wh_code) || !asText(posLocationDefaults.shelf_code))
