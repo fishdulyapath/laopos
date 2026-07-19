@@ -48,7 +48,7 @@ function logout() {
 
     <Drawer :visible="drawerOpen" position="left" :pt="{ root: { class: 'app-nav-drawer' } }" @update:visible="drawerOpen = $event">
       <template #header>
-        <span class="drawer-title" data-font-zone="menu-drawer">ສັນຕິພາບ POS</span>
+        <span class="drawer-title" data-font-zone="menu-drawer">ร้านทดสอบ POS</span>
       </template>
       <!-- ข้อมูลผู้ใช้ + POS -->
       <div class="drawer-user-card" data-font-zone="menu-drawer">

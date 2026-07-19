@@ -115,7 +115,7 @@ const DEFAULT_FIELD_STYLES = Object.fromEntries(Object.entries(DEFAULT_FIELD_LAY
 const DEFAULT_LAYOUT = {
   enabled: true,
   title: 'ໃບຮັບເງິນ/ໃບສົ່ງສິນຄ້າ',
-  shop_name: 'ສັນຕິພາບ',
+  shop_name: 'ร้านทดสอบ',
   branch_name: 'ໜອງໄຮ',
   footer_text: 'ຂອບໃຈທີ່ໃຊ້ບໍລິການຂອງພວກເຮົາ.',
   font_scale: 1,

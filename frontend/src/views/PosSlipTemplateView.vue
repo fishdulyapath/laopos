@@ -62,7 +62,7 @@ const SECTION_LABELS = {
 const DEFAULT_LAYOUT = {
   enabled: true,
   title: 'ໃບຮັບເງິນ/ໃບສົ່ງສິນຄ້າ',
-  shop_name: 'ສັນຕິພາບ',
+  shop_name: 'ร้านทดสอบ',
   branch_name: 'ໜອງໄຮ',
   footer_text: 'ຂອບໃຈທີ່ໃຊ້ບໍລິການຂອງພວກເຮົາ.',
   font_scale: 1,

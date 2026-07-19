@@ -680,7 +680,7 @@ onMounted(async () => {
     // Mock state สำหรับ preview/ปรับแต่งจอ
     applyState({
       mode: "selling",
-      customer: "ສັນຕິພາບ DEMO",
+      customer: "ร้านทดสอบ DEMO",
       cashier: "PUI",
       docNo: "CON-CR2605290001",
       items: [
