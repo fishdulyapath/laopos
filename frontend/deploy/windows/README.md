@@ -1,19 +1,19 @@
 # Windows Docker Image Build and Push
 
 Use this script from Windows PowerShell when you need to build and push the
-Santiparb POS backend and frontend Docker images.
+NextStep POS backend and frontend Docker images.
 
 ## Basic Usage
 
 ```powershell
-cd D:\FishSoft\Santiparb_POS\frontend\deploy\windows
+cd D:\FishSoft\laopos\frontend\deploy\windows
 .\build-and-push-images.ps1 -Tag 1.1.10
 ```
 
 Or use the CMD wrapper, which bypasses local PowerShell execution policy:
 
 ```cmd
-cd D:\FishSoft\Santiparb_POS\frontend\deploy\windows
+cd D:\FishSoft\laopos\frontend\deploy\windows
 build-and-push-images.cmd -Tag 1.1.10
 ```
 
@@ -21,6 +21,7 @@ Push the same version plus `latest`:
 
 ```powershell
 .\build-and-push-images.ps1 -Tag 1.2.27 -PushLatest
+.\build-and-push-images.ps1 -PushLatest
 ```
 
 If PowerShell blocks local scripts:
@@ -49,11 +50,11 @@ $env:DOCKER_REGISTRY = "registry.example.com"
 
 ```powershell
 $env:IMAGE_TAG = "1.1.10"
-$env:BIZSUIT_API_IMAGE = "minorsoft/bizsuit-api"
-$env:BIZSUIT_APP_IMAGE = "minorsoft/bizsuit-app"
+$env:LAOPOS_SERVICE_IMAGE = "minorsoft/laoposservice"
+$env:LAOPOS_WEB_IMAGE = "minorsoft/laoposweb"
 $env:PUSH_LATEST = "1"
 $env:PLATFORMS = "linux/amd64"
-$env:BUILDER = "santiparb-pos-builder"
+$env:BUILDER = "laopos-builder"
 ```
 
 `-Tag` overrides `IMAGE_TAG`.
@@ -62,14 +63,14 @@ $env:BUILDER = "santiparb-pos-builder"
 
 By default:
 
-- API image context: `D:\FishSoft\Santiparb_POS\backend`
-- App image context: `D:\FishSoft\Santiparb_POS\frontend`
+- API image context: `D:\FishSoft\laopos\backend`
+- App image context: `D:\FishSoft\laopos\frontend`
 
 Override only when needed:
 
 ```powershell
-$env:API_DIR = "D:\FishSoft\Santiparb_POS\backend"
-$env:APP_DIR = "D:\FishSoft\Santiparb_POS\frontend"
+$env:API_DIR = "D:\FishSoft\laopos\backend"
+$env:APP_DIR = "D:\FishSoft\laopos\frontend"
 ```
 
 ## Frontend Build Args
@@ -78,7 +79,7 @@ These are optional and default to the production Docker values:
 
 ```powershell
 $env:VITE_API_BASE_URL = "/service/v1"
-$env:VITE_BASE_PATH = "/bizsuit/"
+$env:VITE_BASE_PATH = "/laopos/"
 $env:VITE_TIGER_MOCK = "false"
 $env:VITE_CHANGE_CURRENCY_CODE = "KIP"
 $env:VITE_CHANGE_ROUNDING_STEP = "500"

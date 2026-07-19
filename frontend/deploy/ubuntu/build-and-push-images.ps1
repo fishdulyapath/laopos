@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Build and push BizSuit Docker images (Windows PowerShell equivalent of build-and-push-images.sh)
+    Build and push NextStep POS Docker images (Windows PowerShell equivalent of build-and-push-images.sh)
 .PARAMETER Tag
     Image tag to use. Defaults to $env:IMAGE_TAG or "latest".
 .EXAMPLE
@@ -16,23 +16,23 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
-$BizSuitDir  = (Resolve-Path (Join-Path $ScriptDir "..\..\")).Path.TrimEnd('\')
-$WorkspaceDir = (Resolve-Path (Join-Path $BizSuitDir "..")).Path.TrimEnd('\')
+$LaoposDir  = (Resolve-Path (Join-Path $ScriptDir "..\..\")).Path.TrimEnd('\')
+$WorkspaceDir = (Resolve-Path (Join-Path $LaoposDir "..")).Path.TrimEnd('\')
 
-$ApiDir = if ($env:API_DIR) { $env:API_DIR } else { Join-Path $WorkspaceDir "MarketPlaceWebServiceExpress" }
+$ApiDir = if ($env:API_DIR) { $env:API_DIR } else { Join-Path $WorkspaceDir "backend" }
 
 if (-not $Tag) {
     $Tag = if ($env:IMAGE_TAG) { $env:IMAGE_TAG } else { "latest" }
 }
 
 $Platforms       = if ($env:PLATFORMS)            { $env:PLATFORMS }            else { "linux/amd64" }
-$ApiImage        = if ($env:BIZSUIT_API_IMAGE)     { $env:BIZSUIT_API_IMAGE }    else { "minorsoft/bizsuit-api" }
-$AppImage        = if ($env:BIZSUIT_APP_IMAGE)     { $env:BIZSUIT_APP_IMAGE }    else { "minorsoft/bizsuit-app" }
-$Builder         = if ($env:BUILDER)               { $env:BUILDER }              else { "bizsuit-builder" }
+$ApiImage        = if ($env:LAOPOS_SERVICE_IMAGE)     { $env:LAOPOS_SERVICE_IMAGE }    else { "minorsoft/laoposservice" }
+$AppImage        = if ($env:LAOPOS_WEB_IMAGE)     { $env:LAOPOS_WEB_IMAGE }    else { "minorsoft/laoposweb" }
+$Builder         = if ($env:BUILDER)               { $env:BUILDER }              else { "laopos-builder" }
 $PushLatest      = $env:PUSH_LATEST -eq "1"
 
 $ViteApiBaseUrl  = if ($env:VITE_API_BASE_URL)     { $env:VITE_API_BASE_URL }    else { "/service/v1" }
-$ViteBasePath    = if ($env:VITE_BASE_PATH)        { $env:VITE_BASE_PATH }       else { "/bizsuit/" }
+$ViteBasePath    = if ($env:VITE_BASE_PATH)        { $env:VITE_BASE_PATH }       else { "/laopos/" }
 $ViteTigerMock   = if ($env:VITE_TIGER_MOCK)       { $env:VITE_TIGER_MOCK }      else { "false" }
 $ViteChangeCurrencyCode = if ($env:VITE_CHANGE_CURRENCY_CODE) { $env:VITE_CHANGE_CURRENCY_CODE } else { "KIP" }
 $ViteChangeRoundingStep = if ($env:VITE_CHANGE_ROUNDING_STEP) { $env:VITE_CHANGE_ROUNDING_STEP } else { "500" }
@@ -41,7 +41,7 @@ $ViteChangeRoundingIncomeCode = if ($env:VITE_CHANGE_ROUNDING_INCOME_CODE) { $en
 
 # Validate API directory
 if (-not (Test-Path $ApiDir -PathType Container)) {
-    Write-Error "Missing backend directory: $ApiDir`nSet `$env:API_DIR if it is not beside BizSuit."
+    Write-Error "Missing backend directory: $ApiDir`nSet `$env:API_DIR if it is not beside NextStep POS."
     exit 1
 }
 
@@ -100,7 +100,7 @@ docker buildx build `
     "--build-arg=VITE_CHANGE_ROUNDING_MODE=$ViteChangeRoundingMode" `
     "--build-arg=VITE_CHANGE_ROUNDING_INCOME_CODE=$ViteChangeRoundingIncomeCode" `
     @AppTags `
-    $BizSuitDir
+    $LaoposDir
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""

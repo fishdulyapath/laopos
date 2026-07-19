@@ -2,19 +2,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIZSUIT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WORKSPACE_DIR="$(cd "$BIZSUIT_DIR/.." && pwd)"
-API_DIR="${API_DIR:-$WORKSPACE_DIR/MarketPlaceWebServiceExpress}"
+LAOPOS_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+WORKSPACE_DIR="$(cd "$LAOPOS_DIR/.." && pwd)"
+API_DIR="${API_DIR:-$WORKSPACE_DIR/backend}"
 
 TAG="${1:-${IMAGE_TAG:-latest}}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
-API_IMAGE="${BIZSUIT_API_IMAGE:-minorsoft/bizsuit-api}"
-APP_IMAGE="${BIZSUIT_APP_IMAGE:-minorsoft/bizsuit-app}"
-BUILDER="${BUILDER:-bizsuit-builder}"
+API_IMAGE="${LAOPOS_SERVICE_IMAGE:-minorsoft/laoposservice}"
+APP_IMAGE="${LAOPOS_WEB_IMAGE:-minorsoft/laoposweb}"
+BUILDER="${BUILDER:-laopos-builder}"
 PUSH_LATEST="${PUSH_LATEST:-0}"
 
 VITE_API_BASE_URL="${VITE_API_BASE_URL:-/service/v1}"
-VITE_BASE_PATH="${VITE_BASE_PATH:-/bizsuit/}"
+VITE_BASE_PATH="${VITE_BASE_PATH:-/laopos/}"
 VITE_TIGER_MOCK="${VITE_TIGER_MOCK:-false}"
 VITE_CHANGE_CURRENCY_CODE="${VITE_CHANGE_CURRENCY_CODE:-KIP}"
 VITE_CHANGE_ROUNDING_STEP="${VITE_CHANGE_ROUNDING_STEP:-500}"
@@ -23,7 +23,7 @@ VITE_CHANGE_ROUNDING_INCOME_CODE="${VITE_CHANGE_ROUNDING_INCOME_CODE:-RD-002}"
 
 if [[ ! -d "$API_DIR" ]]; then
   echo "Missing backend directory: $API_DIR" >&2
-  echo "Set API_DIR=/path/to/MarketPlaceWebServiceExpress if it is not beside BizSuit." >&2
+  echo "Set API_DIR=/path/to/backend if it is not beside NextStep POS." >&2
   exit 1
 fi
 
@@ -72,7 +72,7 @@ docker buildx build \
   --build-arg "VITE_CHANGE_ROUNDING_MODE=$VITE_CHANGE_ROUNDING_MODE" \
   --build-arg "VITE_CHANGE_ROUNDING_INCOME_CODE=$VITE_CHANGE_ROUNDING_INCOME_CODE" \
   "${app_tags[@]}" \
-  "$BIZSUIT_DIR"
+  "$LAOPOS_DIR"
 
 echo
 echo "Pushed:"

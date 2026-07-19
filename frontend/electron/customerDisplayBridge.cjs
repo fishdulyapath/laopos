@@ -69,7 +69,7 @@ async function openCustomerDisplay() {
     width: bounds.width,
     height: bounds.height,
     icon: desktopIconPath,
-    title: 'BizSuit Customer Display',
+    title: 'NextStep POS Customer Display',
     backgroundColor: '#fff7ed',
     show: false,
     fullscreen: true,

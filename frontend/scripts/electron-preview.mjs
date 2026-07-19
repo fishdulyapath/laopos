@@ -15,7 +15,8 @@ function run(command, args, options = {}) {
   })
 }
 
-const apiBaseUrl = process.env.BIZSUIT_API_BASE_URL
+const apiBaseUrl = process.env.LAOPOS_API_BASE_URL
+  || process.env.BIZSUIT_API_BASE_URL
   || process.env.VITE_API_BASE_URL
   || 'http://127.0.0.1:47309/service/v1'
 
@@ -25,6 +26,7 @@ const env = {
   VITE_BASE_PATH: './',
   VITE_API_BASE_URL: apiBaseUrl,
   BIZSUIT_API_BASE_URL: apiBaseUrl,
+  LAOPOS_API_BASE_URL: apiBaseUrl,
 }
 
 try {

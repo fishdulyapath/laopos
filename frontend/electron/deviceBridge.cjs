@@ -250,7 +250,7 @@ function parsePowerShellJson(stdout, context) {
   }
 }
 
-function sendRawToPrinter({ printerName, bytes, docName = 'BizSuit raw print' }) {
+function sendRawToPrinter({ printerName, bytes, docName = 'NextStep POS raw print' }) {
   const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes || '');
   if (!printerName) throw new Error('printerName is required');
   if (!buffer.length) throw new Error('raw print bytes are empty');
@@ -371,7 +371,7 @@ async function openCashDrawer(options = {}, getConfig) {
     return sendRawToPrinter({
       printerName: drawer.printerName || config.devices?.rawPrinterName || config.devices?.printerName,
       bytes,
-      docName: 'BizSuit cash drawer',
+      docName: 'NextStep POS cash drawer',
     });
   }
 
@@ -438,7 +438,7 @@ function registerDeviceBridge(getConfig) {
     sendRawToPrinter({
       printerName: payload.printerName || getConfig().devices?.rawPrinterName || getConfig().devices?.printerName,
       bytes: hexToBuffer(payload.hex),
-      docName: payload.docName || 'BizSuit ESC/P2',
+      docName: payload.docName || 'NextStep POS ESC/P2',
     }),
   );
   ipcMain.handle('bizsuit:devices:open-cash-drawer', async (_event, payload = {}) => openCashDrawer(payload, getConfig));

@@ -2,7 +2,7 @@
 FROM node:24-alpine AS build
 WORKDIR /app
 ARG VITE_API_BASE_URL=/service/v1
-ARG VITE_BASE_PATH=/bizsuit/
+ARG VITE_BASE_PATH=/laopos/
 ARG VITE_TIGER_MOCK=false
 ARG VITE_CHANGE_CURRENCY_CODE=KIP
 ARG VITE_CHANGE_ROUNDING_STEP=500
@@ -27,7 +27,7 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 RUN apk add --no-cache wget
-COPY --from=build /app/dist /usr/share/nginx/html/bizsuit
+COPY --from=build /app/dist /usr/share/nginx/html/laopos
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \

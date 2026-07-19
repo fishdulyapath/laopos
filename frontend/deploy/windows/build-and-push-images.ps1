@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Build and push Santiparb POS Docker images from Windows.
+    Build and push NextStep POS Docker images from Windows.
 
 .DESCRIPTION
     Builds the backend image from the repository backend folder and the frontend
@@ -85,13 +85,13 @@ if ([string]::IsNullOrWhiteSpace($Tag)) {
 }
 
 $Platforms = EnvOrDefault "PLATFORMS" "linux/amd64"
-$ApiImage = EnvOrDefault "BIZSUIT_API_IMAGE" "minorsoft/bizsuit-api"
-$AppImage = EnvOrDefault "BIZSUIT_APP_IMAGE" "minorsoft/bizsuit-app"
-$Builder = EnvOrDefault "BUILDER" "santiparb-pos-builder"
+$ApiImage = EnvOrDefault "LAOPOS_SERVICE_IMAGE" "minorsoft/laoposservice"
+$AppImage = EnvOrDefault "LAOPOS_WEB_IMAGE" "minorsoft/laoposweb"
+$Builder = EnvOrDefault "BUILDER" "laopos-builder"
 $PushLatest = $PushLatest -or ((EnvOrDefault "PUSH_LATEST" "0") -eq "1")
 
 $ViteApiBaseUrl = EnvOrDefault "VITE_API_BASE_URL" "/service/v1"
-$ViteBasePath = EnvOrDefault "VITE_BASE_PATH" "/bizsuit/"
+$ViteBasePath = EnvOrDefault "VITE_BASE_PATH" "/laopos/"
 $ViteTigerMock = EnvOrDefault "VITE_TIGER_MOCK" "false"
 $ViteChangeCurrencyCode = EnvOrDefault "VITE_CHANGE_CURRENCY_CODE" "KIP"
 $ViteChangeRoundingStep = EnvOrDefault "VITE_CHANGE_ROUNDING_STEP" "500"

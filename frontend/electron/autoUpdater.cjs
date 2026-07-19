@@ -126,7 +126,7 @@ function registerUpdateIpc() {
 function registerAutoUpdater(getMainWindow, getUpdateConfig = () => ({})) {
   registerUpdateIpc();
 
-  if (!app.isPackaged || process.platform !== 'win32' || process.env.BIZSUIT_DISABLE_AUTO_UPDATE === '1') {
+  if (!app.isPackaged || process.platform !== 'win32' || process.env.LAOPOS_DISABLE_AUTO_UPDATE === '1' || process.env.BIZSUIT_DISABLE_AUTO_UPDATE === '1') {
     setStatus({
       enabled: false,
       status: 'disabled',

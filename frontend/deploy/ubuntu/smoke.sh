@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIZSUIT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-ENV_FILE="${ENV_FILE:-$BIZSUIT_DIR/.env.production}"
+LAOPOS_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ENV_FILE="${ENV_FILE:-$LAOPOS_DIR/.env.production}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Missing env file: $ENV_FILE" >&2
@@ -15,7 +15,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:${BIZSUIT_STACK_PORT:-8081}}"
+BASE_URL="${BASE_URL:-http://127.0.0.1:${LAOPOS_STACK_PORT:-8081}}"
 
 check_text() {
   local name="$1"
@@ -32,7 +32,7 @@ check_text() {
 
 check_text "proxy health" "$BASE_URL/healthz" "ok"
 check_text "backend health" "$BASE_URL/api-health" '"ok"'
-check_text "BizSuit app shell" "$BASE_URL/bizsuit/" '<div id="app">'
+check_text "NextStep POS app shell" "$BASE_URL/laopos/" '<div id="app">'
 check_text "service proxy getPOSList" "$BASE_URL/service/v1/getPOSList" '"success":true'
 
 if [[ -n "${SMOKE_EMPLOYEE_USER:-}" && -n "${SMOKE_EMPLOYEE_PASSWORD:-}" ]]; then
@@ -52,4 +52,4 @@ else
   echo "SKIP employee login smoke"
 fi
 
-echo "PASS BizSuit deployed stack: $BASE_URL/bizsuit/"
+echo "PASS NextStep POS deployed stack: $BASE_URL/laopos/"

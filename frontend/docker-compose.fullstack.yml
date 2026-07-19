@@ -1,8 +1,8 @@
 services:
-  marketplace-api:
+  laoposservice:
     build:
-      context: ../MarketPlaceWebServiceExpress
-    image: marketplace-web-service-express:bizsuit-local
+      context: ../backend
+    image: minorsoft/laoposservice:local
     environment:
       NODE_ENV: production
       PORT: 47300
@@ -35,18 +35,18 @@ services:
       start_period: 10s
       retries: 3
 
-  bizsuit-web:
+  laoposweb:
     build:
       context: .
       args:
-        VITE_API_BASE_URL: ${BIZSUIT_VITE_API_BASE_URL:-/service/v1}
-        VITE_BASE_PATH: ${BIZSUIT_VITE_BASE_PATH:-/bizsuit/}
-        VITE_TIGER_MOCK: ${BIZSUIT_VITE_TIGER_MOCK:-false}
-        VITE_CHANGE_CURRENCY_CODE: ${BIZSUIT_VITE_CHANGE_CURRENCY_CODE:-KIP}
-        VITE_CHANGE_ROUNDING_STEP: ${BIZSUIT_VITE_CHANGE_ROUNDING_STEP:-500}
-        VITE_CHANGE_ROUNDING_MODE: ${BIZSUIT_VITE_CHANGE_ROUNDING_MODE:-down}
-        VITE_CHANGE_ROUNDING_INCOME_CODE: ${BIZSUIT_VITE_CHANGE_ROUNDING_INCOME_CODE:-RD-002}
-    image: bizsuit-web:local
+        VITE_API_BASE_URL: ${LAOPOS_VITE_API_BASE_URL:-/service/v1}
+        VITE_BASE_PATH: ${LAOPOS_VITE_BASE_PATH:-/laopos/}
+        VITE_TIGER_MOCK: ${LAOPOS_VITE_TIGER_MOCK:-false}
+        VITE_CHANGE_CURRENCY_CODE: ${LAOPOS_VITE_CHANGE_CURRENCY_CODE:-KIP}
+        VITE_CHANGE_ROUNDING_STEP: ${LAOPOS_VITE_CHANGE_ROUNDING_STEP:-500}
+        VITE_CHANGE_ROUNDING_MODE: ${LAOPOS_VITE_CHANGE_ROUNDING_MODE:-down}
+        VITE_CHANGE_ROUNDING_INCOME_CODE: ${LAOPOS_VITE_CHANGE_ROUNDING_INCOME_CODE:-RD-002}
+    image: minorsoft/laoposweb:local
     expose:
       - "80"
     restart: unless-stopped
@@ -57,16 +57,16 @@ services:
       start_period: 5s
       retries: 3
 
-  bizsuit-proxy:
+  laopos-proxy:
     image: nginx:1.27-alpine
     ports:
-      - "${BIZSUIT_STACK_PORT:-8091}:80"
+      - "${LAOPOS_STACK_PORT:-8091}:80"
     volumes:
       - ./deploy/nginx.fullstack.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      marketplace-api:
+      laoposservice:
         condition: service_healthy
-      bizsuit-web:
+      laoposweb:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:

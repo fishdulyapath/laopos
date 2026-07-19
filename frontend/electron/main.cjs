@@ -22,7 +22,7 @@ function cleanUrl(value) {
 }
 
 function userDesktopConfigPath() {
-  return path.join(app.getPath('userData'), 'bizsuit-desktop.config.json');
+  return path.join(app.getPath('userData'), 'laopos-desktop.config.json');
 }
 
 function readJsonConfig(filePath) {
@@ -39,10 +39,12 @@ function desktopConfig() {
   const candidates = [
     path.join(process.cwd(), 'bizsuit-desktop.config.json'),
     path.join(path.dirname(process.execPath), 'bizsuit-desktop.config.json'),
+    path.join(process.cwd(), 'laopos-desktop.config.json'),
+    path.join(path.dirname(process.execPath), 'laopos-desktop.config.json'),
     userDesktopConfigPath(),
   ];
   const fileConfig = candidates.reduce((merged, filePath) => ({ ...merged, ...readJsonConfig(filePath) }), {});
-  const apiBaseUrl = cleanUrl(process.env.BIZSUIT_API_BASE_URL || fileConfig.apiBaseUrl || fileConfig.api_base_url || 'http://192.168.1.249:8092/service/v1');
+  const apiBaseUrl = cleanUrl(process.env.LAOPOS_API_BASE_URL || process.env.BIZSUIT_API_BASE_URL || fileConfig.apiBaseUrl || fileConfig.api_base_url || 'http://192.168.1.249:8092/service/v1');
   return {
     apiBaseUrl,
     devices: fileConfig.devices || {},

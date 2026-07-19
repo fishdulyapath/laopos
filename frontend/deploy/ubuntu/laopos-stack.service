@@ -1,0 +1,18 @@
+[Unit]
+Description=NextStep POS full-stack Docker Compose service
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/laopos/frontend
+EnvironmentFile=/opt/laopos/frontend/.env.production
+ExecStartPre=/usr/bin/docker compose --env-file /opt/laopos/frontend/.env.production -f /opt/laopos/frontend/deploy/ubuntu/docker-compose.images.yml pull
+ExecStart=/usr/bin/docker compose --env-file /opt/laopos/frontend/.env.production -f /opt/laopos/frontend/deploy/ubuntu/docker-compose.images.yml up -d
+ExecStop=/usr/bin/docker compose --env-file /opt/laopos/frontend/.env.production -f /opt/laopos/frontend/deploy/ubuntu/docker-compose.images.yml down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
