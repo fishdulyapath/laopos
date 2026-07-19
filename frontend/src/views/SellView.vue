@@ -480,6 +480,7 @@ const exchangeRateEditAuthorized = ref({});
 const cashQuickAmounts = [20, 50, 100, 500, 1000];
 const cashForeignQuickAmounts = [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
 const cashForeignSmallQuickAmounts = [10, 20, 30, 50, 100];
+const cashVndQuickAmounts = [10000, 20000, 50000, 100000, 200000, 500000];
 const cashKeypadKeys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", ".", "backspace"];
 const transferInputAmount = ref(0);
 const transferCurrency = ref(null);
@@ -835,6 +836,13 @@ const cashCurrencyTabs = computed(() => {
 });
 
 const defaultCashCurrencyCode = computed(() => currentHomeCashCurrencyCode());
+const homeCurrencyDisplayCode = computed(() => {
+  const configured = String(paymentMasterOptions.value?.home_currency || "").trim().toUpperCase();
+  return configured || currentHomeCashCurrencyCode();
+});
+const homeCurrencyAmountLabel = computed(() =>
+  `${tl("ยอดเงินสกุลหลัก", "Home currency amount", "ຍອດເງິນສະກຸນຫຼັກ")} (${homeCurrencyDisplayCode.value})`,
+);
 
 const otherCurrencyOptions = computed(() => currencyTypes.value.filter((row) => !foreignCashCurrencyCodes.value.includes(normalizeCashCurrencyCode(row.code))));
 
@@ -2224,22 +2232,35 @@ const activeCashChangeAmount = computed(() => {
   const tender = toNumber(cashCurrencyAmount.value);
   return Math.max(0, rnd(tender - activeCashDueAmount.value));
 });
-const activeCashQuickAmounts = computed(() =>
-  isKipCashCurrencyCode(cashCurrencyCode.value) ? cashForeignQuickAmounts : isHomeCashCurrency.value ? cashQuickAmounts : cashForeignSmallQuickAmounts,
-);
+const activeCashQuickAmounts = computed(() => {
+  const code = normalizeCashCurrencyCode(cashCurrencyCode.value);
+  if (isKipCashCurrencyCode(code)) return cashForeignQuickAmounts;
+  if (code === "VND") return cashVndQuickAmounts;
+  return isHomeCashCurrency.value ? cashQuickAmounts : cashForeignSmallQuickAmounts;
+});
 const activeCashExchangeRateValid = computed(() => isHomeCashCurrency.value || toNumber(cashExchangeRate.value) > 0);
 
 const isKipActiveCurrency = computed(() => isKipCashCurrencyCode(cashCurrencyCode.value));
 const activeCashRoundingStep = computed(() => (sameCustomerDisplayCurrency(cashCurrencyCode.value, changeRoundingCurrencyCode) ? changeRoundingStep : isKipActiveCurrency.value ? 500 : 0));
-const kipSuggestedAmount = computed(() => {
-  if (!isKipActiveCurrency.value || !activeCashExchangeRateValid.value) return null;
-  const multiplier = toNumber(String(selectedCashCurrency.value?.name_2 || "").replace(/,/g, ""), 0);
-  if (multiplier <= 0) return null;
-  const kipRaw = rnd(remainingPayment.value * multiplier, 0);
-  if (kipRaw <= 0) return { kipRaw: 0, kipRounded: 0 };
-  const step = activeCashRoundingStep.value || 500;
-  const kipRounded = Math.ceil(kipRaw / step) * step;
-  return { kipRaw, kipRounded };
+const activeCashSuggestedStep = computed(() => {
+  const code = normalizeCashCurrencyCode(cashCurrencyCode.value);
+  if (isKipCashCurrencyCode(code)) return 500;
+  if (code === "VND") return 1000;
+  if (code === "THB") return 1;
+  const decimals = Math.max(0, toNumber(selectedCashCurrency.value?.decimals, 2));
+  return 10 ** -decimals;
+});
+const cashSuggestedAmount = computed(() => {
+  if (!activeCashExchangeRateValid.value) return null;
+  const raw = Math.max(0, toNumber(activeCashDueAmount.value));
+  const step = Math.max(Number.EPSILON, toNumber(activeCashSuggestedStep.value, 1));
+  const suggested = raw > 0 ? Math.ceil((raw - Number.EPSILON) / step) * step : 0;
+  return {
+    raw: rnd(raw, 8),
+    suggested: rnd(suggested, 8),
+    step,
+    decimals: step >= 1 ? 0 : Math.min(8, Math.ceil(Math.abs(Math.log10(step)))),
+  };
 });
 function isChangeAutoIncomeEntry(entry) {
   return entry?.type === "income" && String(entry.details?.trans_number || "").trim() === changeRoundingIncomeCode && (entry.details?._change_auto || entry.details?._kip_auto);
@@ -2327,6 +2348,7 @@ const showTransferAutoRounding = computed(() => transferAutoRoundingNeedsSync.va
 const transferAutoRoundingLabel = computed(() => `${tl("ปัดเศษเงินโอน", "Round transfer", "ປັດເສດເງິນໂອນ")} RD-002 (${formatCurrency(transferRoundingTargetIncomeAmount.value)})`);
 const paymentChangeRawCurrencyAmount = computed(() => changeRoundingRawChangeAmount.value);
 const paymentChangeRoundedCurrencyAmount = computed(() => changeRoundingRoundedChangeAmount.value);
+const paymentChangeRoundedHomeAmount = computed(() => changeCurrencyAmountToHome(paymentChangeRoundedCurrencyAmount.value));
 const paymentChangeCurrencyHasRounding = computed(() => rnd(paymentChangeRawCurrencyAmount.value - paymentChangeRoundedCurrencyAmount.value, changeRoundingPrecision) !== 0);
 const paymentChangeRoundedCurrencyName = computed(() => changeRoundingCurrencyName.value);
 const cashExchangeRateEditKey = computed(() => `cash:${normalizeCashCurrencyCode(cashCurrencyCode.value)}`);
@@ -2549,27 +2571,6 @@ const currencyBeforeVat = computed(() => currencyTotals.value.beforeVat);
 const currencyVatValue = computed(() => currencyTotals.value.vatValue);
 const currencyTotalAmount = computed(() => currencyTotals.value.totalAmount);
 const totalDue = computed(() => Math.max(0, rnd(paymentNetAmount.value - toNumber(roundedAmount.value))));
-const summaryTotalKipCurrency = computed(() => {
-  for (const code of ["KIP", "LAK"]) {
-    const currency = currencyTypes.value.find(
-      (row) =>
-        String(row.code || "")
-          .trim()
-          .toUpperCase() === code,
-    );
-    if (currency) return currency;
-  }
-  return null;
-});
-const summaryTotalKipDisplay = computed(() => {
-  const currency = summaryTotalKipCurrency.value;
-  const multiplier = toNumber(String(currency?.name_2 || "").replace(/,/g, ""), 0);
-  if (!currency || multiplier <= 0) return null;
-  return {
-    amount: rnd(totalDue.value * multiplier, 0),
-    name: String(currency?.name_1 || currency?.name || currency?.code || "").trim(),
-  };
-});
 const cashPaymentDue = computed(() => Math.max(0, rnd(totalDue.value - nonCashPaid.value)));
 const cashPaid = computed(() => (cashReceiveAmount.value > 0 ? Math.min(cashReceiveAmount.value, cashPaymentDue.value) : 0));
 const totalPaid = computed(() => rnd(nonCashPaid.value + cashPaid.value));
@@ -8547,9 +8548,9 @@ function addCash() {
   if (documentLocked.value || isCreditSale.value) return;
   if (!activeCashExchangeRateValid.value) return;
 
-  const kip = kipSuggestedAmount.value;
+  const suggestion = cashSuggestedAmount.value;
   const tendered = cashTenderText.value ? toNumber(String(cashTenderText.value).replace(/,/g, "")) : 0;
-  const amount = kip != null ? kip.kipRounded + tendered : activeCashDueAmount.value;
+  const amount = suggestion != null ? suggestion.suggested + tendered : activeCashDueAmount.value;
   if (amount <= 0) return;
   setCashTenderAmount(amount);
   refreshPaymentReviewAfterEdit();
@@ -12525,14 +12526,20 @@ function backToSaleDetail() {
                 >{{ selectedCashCurrency?.name }} <span v-if="selectedCashCurrency?.name_2 != '1'" class="cash-currency-name2">({{ selectedCashCurrency?.name_2 }})</span></span
               >
             </h1>
-            <div :class="['cash-currency-grid', { 'cash-currency-grid--3col': isKipActiveCurrency }]">
+            <div :class="['cash-currency-grid', { 'cash-currency-grid--3col': cashSuggestedAmount }]">
               <label class="field">
                 <span>{{ isHomeCashCurrency ? t("sell.amountDue") : `${t("sell.amountDue")} (${selectedCashCurrency?.code})` }}</span>
                 <InputNumber :model-value="activeCashDueAmount" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" disabled />
               </label>
-              <label v-if="isKipActiveCurrency && kipSuggestedAmount" class="field kip-suggested-field">
+              <label v-if="cashSuggestedAmount" class="field kip-suggested-field">
                 <span>{{ tl("ยอดชำระแนะนำ", "Suggested amount", "ຍອດຊຳລະແນະນຳ") }} ({{ selectedCashCurrency?.code }})</span>
-                <InputNumber :model-value="kipSuggestedAmount.kipRounded" input-class="text-right" :min-fraction-digits="0" :max-fraction-digits="0" disabled />
+                <InputNumber
+                  :model-value="cashSuggestedAmount.suggested"
+                  input-class="text-right"
+                  :min-fraction-digits="cashSuggestedAmount.decimals"
+                  :max-fraction-digits="cashSuggestedAmount.decimals"
+                  disabled
+                />
               </label>
               <label class="field">
                 <span>{{ isHomeCashCurrency ? t("sell.receiveAmount") : `${t("sell.receiveAmount")} ${selectedCashCurrency?.code}` }}</span>
@@ -12552,7 +12559,7 @@ function backToSaleDetail() {
             </div>
             <div class="cash-converted-preview">
               <span>{{
-                isHomeCashCurrency ? t("payment.cashComputed") : `${t("sell.bahtAmount")} (${formatQty(cashCurrencyAmount)} ${selectedCashCurrency?.code} x ${formatExchangeRate(cashExchangeRate)})`
+                isHomeCashCurrency ? t("payment.cashComputed") : `${homeCurrencyAmountLabel} (${formatQty(cashCurrencyAmount)} ${selectedCashCurrency?.code} x ${formatExchangeRate(cashExchangeRate)})`
               }}</span>
               <strong>{{ formatCurrency(isHomeCashCurrency ? cashPaymentDue : cashConvertedAmount) }}</strong>
             </div>
@@ -12572,7 +12579,7 @@ function backToSaleDetail() {
                 />
               </label>
               <label class="field">
-                <span>{{ t("sell.bahtAmount") }}</span>
+                <span>{{ homeCurrencyAmountLabel }}</span>
                 <InputNumber :model-value="cashConvertedAmount" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" disabled />
               </label>
             </div>
@@ -12609,7 +12616,7 @@ function backToSaleDetail() {
           </div>
 
           <div v-else-if="activePayType === 'transfer' || activePayType === 'credit_transfer'" class="pay-form pay-form-transfer">
-            <template v-if="activePayType === 'transfer'">
+            <!-- <template v-if="activePayType === 'transfer'">
               <div class="transfer-static-qr-actions">
                 <button
                   v-for="option in transferStaticQrOptions"
@@ -12623,7 +12630,7 @@ function backToSaleDetail() {
                   <span>{{ option.name }}</span>
                 </button>
               </div>
-            </template>
+            </template> -->
             <label class="field transfer-account-book">
               <span>{{ t("sell.accountBook") }}</span>
               <Select v-model="transferPassBook" :options="passBooks" option-label="label" :placeholder="t('sell.accountBook')" :disabled="documentLocked" filter />
@@ -12804,7 +12811,7 @@ function backToSaleDetail() {
           </div>
 
           <div v-else-if="activePayType === 'credit_transfer'" class="pay-form pay-form-transfer">
-            <div class="transfer-static-qr-actions">
+            <!-- <div class="transfer-static-qr-actions">
               <button
                 v-for="option in transferStaticQrOptions"
                 :key="option.code"
@@ -12816,7 +12823,7 @@ function backToSaleDetail() {
               >
                 {{ option.label }}
               </button>
-            </div>
+            </div> -->
             <section class="transfer-form-section">
               <div class="transfer-form-grid">
                 <label class="field">
@@ -12959,7 +12966,7 @@ function backToSaleDetail() {
                 {{ formatCurrency(creditTotalPreview) }}
                 {{ creditCurrencyCode || "THB" }}</span
               >
-              <span>{{ t("sell.bahtAmount") }} {{ formatCurrency(creditConvertedTotal) }}</span>
+              <span>{{ homeCurrencyAmountLabel }} {{ formatCurrency(creditConvertedTotal) }}</span>
               <span v-if="creditType">{{ tl("อัตรา", "Rate", "ອັດຕາ") }} {{ creditType.charge_rate_word || creditType.charge_rate || "0" }}</span>
             </div> -->
             <div class="grid col-12">
@@ -12982,7 +12989,7 @@ function backToSaleDetail() {
                 />
               </label>
               <label class="field col-12 md:col-4">
-                <span>Charge {{ t("sell.baht") }}</span>
+                <span>Charge ({{ homeCurrencyDisplayCode }})</span>
                 <InputNumber :model-value="creditConvertedCharge" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" disabled />
               </label>
             </div>
@@ -13045,7 +13052,7 @@ function backToSaleDetail() {
                 />
               </label>
               <label class="field col-12 md:col-4">
-                <span>{{ t("sell.bahtAmount") }}</span>
+                <span>{{ homeCurrencyAmountLabel }}</span>
                 <InputNumber :model-value="chequeConvertedAmount" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" disabled />
               </label>
             </div>
@@ -13338,7 +13345,7 @@ function backToSaleDetail() {
               <InputNumber v-model="otherCurrencyCharge" input-class="text-right" :min="0" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
             </label>
             <div class="cash-converted-preview col-12">
-              <span>{{ t("sell.bahtAmount") }}</span>
+              <span>{{ homeCurrencyAmountLabel }}</span>
               <strong>{{ formatCurrency(otherCurrencyConvertedAmount) }}</strong>
             </div>
             <Button
@@ -13618,29 +13625,26 @@ function backToSaleDetail() {
         <aside class="payment-dialog-summary-panel" data-font-zone="payment-summary">
           <div class="payment-summary-total-card">
             <span class="payment-summary-total-label">{{ t("sell.amountToPay") }}</span>
-            <strong v-if="summaryTotalKipDisplay"
-              >{{ formatQty(summaryTotalKipDisplay.amount) }} <small>{{ summaryTotalKipDisplay.name }}</small></strong
-            >
-            <strong v-else>{{ formatCurrency(totalDue) }}</strong>
+            <strong>{{ formatQty(totalDue) }} <small>{{ homeCurrencyDisplayCode }}</small></strong>
           </div>
           <div class="payment-summary-lines">
             <div class="rounded-amount-line">
-              <span>{{ t("sell.rounded") }} ({{ t("sell.baht") }}) </span>
+              <span>{{ t("sell.rounded") }} ({{ homeCurrencyDisplayCode }}) </span>
               <InputNumber v-model="roundedAmount" input-class="text-right" :min-fraction-digits="2" :max-fraction-digits="2" :disabled="documentLocked" />
             </div>
             <div>
-              <span>{{ t("sell.payAmount") }} ({{ t("sell.baht") }})</span>
+              <span>{{ t("sell.payAmount") }} ({{ homeCurrencyDisplayCode }})</span>
               <b>{{ formatCurrency(totalPaid) }}</b>
             </div>
             <div>
-              <span>{{ t("sell.remaining") }} ({{ t("sell.baht") }})</span>
+              <span>{{ t("sell.remaining") }} ({{ homeCurrencyDisplayCode }})</span>
               <b class="payment-remaining">{{ formatCurrency(remainingPayment) }}</b>
             </div>
             <div class="change">
-              <span>{{ t("sell.change") }} ({{ t("sell.baht") }})</span>
-              <b>{{ formatCurrency(paymentChange) }}</b>
+              <span>{{ t("sell.change") }} ({{ homeCurrencyDisplayCode }})</span>
+              <b>{{ formatQty(paymentChangeRoundedHomeAmount) }}</b>
             </div>
-            <div class="change change-kip">
+            <div v-if="normalizeCashCurrencyCode(changeRoundingCurrencyCode) !== currentHomeCashCurrencyCode()" class="change change-kip">
               <span>{{ t("sell.change") }} ({{ paymentChangeRoundedCurrencyName }})</span>
               <span class="change-currency-values">
                 <small v-if="paymentChangeCurrencyHasRounding" class="change-currency-before">({{ formatQty(paymentChangeRawCurrencyAmount) }})</small>

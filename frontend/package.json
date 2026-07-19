@@ -64,8 +64,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "Santiparb-Repo",
-        "repo": "Santiparb_POS",
+        "owner": "fishdulyapath",
+        "repo": "laopos",
         "releaseType": "release",
         "private": true
       }

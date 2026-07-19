@@ -4,8 +4,8 @@ const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
 pkg.version = process.env.APP_VERSION
 pkg.build.publish = [{
   provider: 'github',
-  owner: 'Santiparb-Repo',
-  repo: 'Santiparb_POS',
+  owner: 'fishdulyapath',
+  repo: 'laopos',
   releaseType: process.env.RELEASE_TYPE || 'release',
   private: true,
 }]

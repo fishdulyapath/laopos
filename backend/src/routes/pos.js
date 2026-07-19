@@ -2013,10 +2013,6 @@ async function validateCashCurrencyEntries(client, cashEntries, { totalCashAmoun
       throw userValidationError('ยังไม่ได้เปิดใช้งานระบบหลายสกุลเงิน');
     }
 
-    if (homeCode === 'LAK' && currencyCode !== 'THB') {
-      throw userValidationError(`Cash currency must be LAK/KIP or THB (${currencyCode})`);
-    }
-
     const currency = await loadCurrency(client, currencyCode);
     if (!currency) throw userValidationError(`ไม่พบสกุลเงิน ${currencyCode}`);
     const masterRate = asNumber(currency.exchange_rate_present);
