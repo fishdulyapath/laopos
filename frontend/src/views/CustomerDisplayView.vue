@@ -3,8 +3,7 @@ import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from "v
 import laoQrMarkImage from "@/assets/laoqr.svg";
 import onePayMarkImage from "@/assets/onepay.png";
 import bankIconImage from "@/assets/bankicon.png";
-import welcomeImage from "@/assets/welcome.png";
-import thankyouImage from "@/assets/thankyou.png";
+
 import api from "@/services/api";
 import { productImageUrl } from "@/utils/imageUrls";
 import { DEFAULT_CUSTOMER_DISPLAY_CURRENCY_CODE } from "@/utils/posDeviceSettings";
@@ -795,7 +794,7 @@ watch(activeAdIndex, async () => {
 
     <section class="display-grid">
       <section class="display-left">
-        <section class="items-panel" :style="{ '--welcome-image': `url(${welcomeImage})`, '--welcome-opacity': items.length ? 0.3 : 1 }">
+        <section class="items-panel" >
           <div class="item-table-head" data-font-zone="customer-display-table-head">
             <span class="item-head-title" aria-hidden="true">{{ cdText("item") }}</span>
             <span></span>
@@ -911,8 +910,7 @@ watch(activeAdIndex, async () => {
 
     <section v-if="showThankYouDialog" class="thankyou-overlay" aria-live="polite">
       <div class="thankyou-dialog" data-font-zone="customer-display-thankyou">
-        <img class="thankyou-side-image left" :src="welcomeImage" alt="" aria-hidden="true" />
-        <img class="thankyou-side-image right" :src="thankyouImage" alt="" aria-hidden="true" />
+
         <div class="thankyou-icon">
           <i class="pi pi-check" />
         </div>
