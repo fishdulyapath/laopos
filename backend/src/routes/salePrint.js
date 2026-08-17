@@ -1196,7 +1196,7 @@ function renderPosSlipHtml({ data, layout, displayTexts = {} }) {
   <style>
     @page { size: 80mm auto; margin: 0; }
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: #fff; color: #111; }
+    html, body { width: 80mm; margin: 0; padding: 0; background: #fff; color: #111; }
     body {
       font-family: "Noto Sans Lao", "Phetsarath OT", "Saysettha OT", "DejaVu Sans", Arial, sans-serif;
       font-size: 11px;
@@ -1207,7 +1207,7 @@ function renderPosSlipHtml({ data, layout, displayTexts = {} }) {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .receipt { width: 72mm; margin: 0 auto; padding: 3mm 0 4mm; overflow: hidden; }
+    .receipt { width: 72mm; margin-left: 1.5mm; margin-right: 0; padding: 3mm 0 4mm; overflow: hidden; }
     .center { text-align: center; }
     .logo { max-width: 38mm; max-height: ${Math.max(8, Math.min(45, Number(layout.logo_max_height_mm || 18)))}mm; object-fit: contain; display: block; margin: 0 auto 1.5mm; }
     .shop { font-weight: 800; font-size: 16px; }
@@ -1256,8 +1256,7 @@ function renderPosSlipHtml({ data, layout, displayTexts = {} }) {
     .ad-body { margin-top: 1.5mm; overflow-wrap: anywhere; }
     @media screen { body { margin: 0 auto; box-shadow: 0 0 0 1px #ddd; } }
     @media print {
-      html, body { width: 80mm; }
-      .receipt { margin: 0 auto; }
+      .receipt { margin-left: 1.5mm; margin-right: 0; }
     }
   </style>
 </head>
